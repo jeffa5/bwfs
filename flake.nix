@@ -15,6 +15,10 @@
         rustc
         cargo
         rustfmt
+
+        pkg-config
+        fuse3
+        openssl
       ];
     };
   };

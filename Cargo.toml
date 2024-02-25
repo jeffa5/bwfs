@@ -1,8 +1,16 @@
 [package]
-name = "bw-fs"
+name = "bwfs"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bitwarden = { git = "https://github.com/bitwarden/sdk", branch = "main", features = ["internal"] }
+clap = { version = "4.5.1", features = ["derive"] }
+env_logger = "0.11.2"
+fuser = "0.14.0"
+rbw = "1.9.0"
+rpassword = "7.3.1"
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"] }
+uuid = "1.7.0"
