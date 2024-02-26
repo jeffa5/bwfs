@@ -99,6 +99,7 @@ fn bw_init(bw_bin: String) -> MapFS {
                 fs.add_file(parent, format!("field_{}", field.name), field.value);
             }
         }
+        fs.add_file(parent, "id".to_owned(), secret.id);
     }
     fs
 }
