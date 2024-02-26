@@ -57,6 +57,7 @@ fn bw_init() -> MapFS {
     println!("Vault is unlocked, listing secrets");
     let secrets = cli.list().unwrap();
 
+    println!("Converting secrets to filesystem");
     let mut fs = MapFS::new();
     for secret in secrets {
         let parent = fs.add_dir(secret.name);
