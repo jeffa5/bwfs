@@ -10,7 +10,11 @@ use tracing::info;
 #[derive(Debug)]
 pub enum FSEntry {
     Dir(BTreeMap<String, u64>),
-    File(String),
+    File {
+        content: String,
+        ctime: SystemTime,
+        mtime: SystemTime,
+    },
 }
 
 impl FSEntry {
@@ -20,8 +24,8 @@ impl FSEntry {
             size: self.size(),
             blocks: 1,
             atime: SystemTime::now(),
-            mtime: SystemTime::now(),
-            ctime: SystemTime::now(),
+            mtime: self.mtime(),
+            ctime: self.ctime(),
             crtime: SystemTime::now(),
             kind: self.kind(),
             perm: 0o755,
@@ -37,14 +41,28 @@ impl FSEntry {
     fn kind(&self) -> FileType {
         match self {
             FSEntry::Dir(_) => FileType::Directory,
-            FSEntry::File(_) => FileType::RegularFile,
+            FSEntry::File { .. } => FileType::RegularFile,
         }
     }
 
     fn size(&self) -> u64 {
         match self {
             FSEntry::Dir(_) => 0,
-            FSEntry::File(content) => content.as_bytes().len() as u64,
+            FSEntry::File { content, .. } => content.as_bytes().len() as u64,
+        }
+    }
+
+    fn ctime(&self) -> SystemTime {
+        match self {
+            FSEntry::Dir(_) => SystemTime::now(),
+            FSEntry::File { ctime, .. } => ctime.clone(),
+        }
+    }
+
+    fn mtime(&self) -> SystemTime {
+        match self {
+            FSEntry::Dir(_) => SystemTime::now(),
+            FSEntry::File { mtime, .. } => mtime.clone(),
         }
     }
 }
@@ -84,14 +102,28 @@ impl MapFS {
         inode
     }
 
-    pub fn add_file(&mut self, parent: u64, name: String, value: String) -> u64 {
+    pub fn add_file(
+        &mut self,
+        parent: u64,
+        name: String,
+        value: String,
+        ctime: SystemTime,
+        mtime: SystemTime,
+    ) -> u64 {
         let name = sanitize_name(&name);
         let inode = self.next_id();
         if let Some(FSEntry::Dir(children)) = self.inode_map.get_mut(&parent) {
             children.insert(name.clone(), inode);
         }
         self.name_map.insert((parent, name), inode);
-        self.inode_map.insert(inode, FSEntry::File(value));
+        self.inode_map.insert(
+            inode,
+            FSEntry::File {
+                content: value,
+                ctime,
+                mtime,
+            },
+        );
         inode
     }
 
@@ -201,7 +233,7 @@ impl Filesystem for MapFS {
         reply: fuser::ReplyData,
     ) {
         info!("read: {ino} {fh} {offset} {size}");
-        if let Some(FSEntry::File(content)) = self.inode_map.get(&ino) {
+        if let Some(FSEntry::File { content, .. }) = self.inode_map.get(&ino) {
             reply.data(content.as_bytes());
         } else {
             reply.error(ENOENT);

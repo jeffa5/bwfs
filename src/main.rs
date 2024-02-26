@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+use std::time::SystemTime;
 
 use bwfs::mapfs::MapFS;
 
+use serde::de::value::StringDeserializer;
 use tracing::debug;
 use tracing::info;
 
@@ -75,31 +77,75 @@ fn bw_init(bw_bin: String) -> MapFS {
     }
 
     for secret in secrets {
-        let folder_id = folders_map.get(&secret.folder_id.unwrap_or_default()).unwrap();
+        let folder_id = folders_map
+            .get(&secret.folder_id.unwrap_or_default())
+            .unwrap();
         let parent = fs.add_dir(*folder_id, secret.name);
+        let ctime = SystemTime::from(
+            time::serde::rfc3339::deserialize(StringDeserializer::<serde::de::value::Error>::new(
+                secret.creation_date,
+            ))
+            .unwrap(),
+        );
+        let mtime = SystemTime::from(
+            time::serde::rfc3339::deserialize(StringDeserializer::<serde::de::value::Error>::new(
+                secret.revision_date,
+            ))
+            .unwrap(),
+        );
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
-                fs.add_file(parent, "username".to_owned(), username);
+                fs.add_file(
+                    parent,
+                    "username".to_owned(),
+                    username,
+                    ctime.clone(),
+                    mtime.clone(),
+                );
             }
             if let Some(password) = login.password {
-                fs.add_file(parent, "password".to_owned(), password);
+                fs.add_file(
+                    parent,
+                    "password".to_owned(),
+                    password,
+                    ctime.clone(),
+                    mtime.clone(),
+                );
             }
             if let Some(uris) = login.uris {
                 for (i, uri) in uris.into_iter().enumerate() {
                     let uri_name = format!("uri_{i}");
-                    fs.add_file(parent, uri_name, uri.uri);
+                    fs.add_file(parent, uri_name, uri.uri, ctime.clone(), mtime.clone());
                 }
             }
         }
         if let Some(notes) = secret.notes {
-            fs.add_file(parent, "notes".to_owned(), notes);
+            fs.add_file(
+                parent,
+                "notes".to_owned(),
+                notes,
+                ctime.clone(),
+                mtime.clone(),
+            );
         }
         if let Some(fields) = secret.fields {
             for field in fields {
-                fs.add_file(parent, format!("field_{}", field.name), field.value);
+                fs.add_file(
+                    parent,
+                    format!("field_{}", field.name),
+                    field.value,
+                    ctime.clone(),
+                    mtime.clone(),
+                );
             }
         }
-        fs.add_file(parent, "id".to_owned(), secret.id);
+        fs.add_file(
+            parent,
+            "id".to_owned(),
+            secret.id,
+            ctime.clone(),
+            mtime.clone(),
+        );
     }
     fs
 }
