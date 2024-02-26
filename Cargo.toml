@@ -12,3 +12,5 @@ fuser = "0.14.0"
 libc = "0.2.153"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
+tracing = { version = "0.1.40", features = ["log"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

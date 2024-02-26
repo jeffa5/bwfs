@@ -1,9 +1,11 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    ffi::OsString,
+    collections::BTreeMap,
     process::{Command, Stdio},
     time::{Duration, SystemTime},
 };
+
+use tracing::debug;
+use tracing::info;
 
 use clap::Parser;
 use fuser::{FileAttr, FileType, Filesystem, MountOption};
@@ -126,15 +128,14 @@ impl Filesystem for MapFS {
         reply: fuser::ReplyEntry,
     ) {
         let name = name.to_str().unwrap();
-        println!("lookup: {} {}", parent, name);
+        info!("lookup: {} {}", parent, name);
         if let Some(ino) = self.name_map.get(&(parent, name.to_owned())).copied() {
             let entry = self.inode_map.get(&ino).unwrap();
-            println!("looked up secret {}", name);
+            debug!("looked up secret {}", name);
             let attrs = entry.attrs(ino);
-            dbg!(&attrs);
             reply.entry(&Duration::from_secs(60), &attrs, self.generation)
         } else {
-            println!("didn't find lookup for {name}");
+            debug!("didn't find lookup for {name}");
             reply.error(ENOENT)
         }
     }
@@ -146,8 +147,8 @@ impl Filesystem for MapFS {
         flags: i32,
         reply: fuser::ReplyOpen,
     ) {
-        println!("opendir: {} {}", ino, flags);
-        if let Some(entry) = self.inode_map.get(&ino) {
+        info!("opendir: {} {}", ino, flags);
+        if self.inode_map.contains_key(&ino) {
             let fh = self.register_fh(ino);
             reply.opened(fh, 0)
         } else {
@@ -156,14 +157,13 @@ impl Filesystem for MapFS {
     }
 
     fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
-        println!("getattr: {}", ino);
+        info!("getattr: {}", ino);
         if let Some(entry) = self.inode_map.get(&ino) {
-            println!("Found entry");
+            debug!("Found entry");
             let attrs = entry.attrs(ino);
-            dbg!(&attrs);
             reply.attr(&Duration::from_secs(60), &attrs);
         } else {
-            println!("Failed to find entry");
+            debug!("Failed to find entry");
             reply.error(ENOENT)
         }
     }
@@ -176,7 +176,7 @@ impl Filesystem for MapFS {
         offset: i64,
         mut reply: fuser::ReplyDirectory,
     ) {
-        println!("readdir: {ino} {fh} {offset}");
+        info!("readdir: {ino} {fh} {offset}");
         if !self.handles.contains_key(&ino) {
             reply.error(ENOENT);
             return;
@@ -184,10 +184,10 @@ impl Filesystem for MapFS {
         if let Some(FSEntry::Dir(children)) = self.inode_map.get(&ino) {
             for (i, (name, id)) in children.iter().enumerate().skip(offset as usize) {
                 let child = self.inode_map.get(id).unwrap();
-                println!("adding {}", name);
+                debug!("adding {}", name);
                 let full = reply.add(*id, i as i64 + 1, child.kind(), name);
                 if full {
-                    println!("readdir full");
+                    debug!("readdir full");
                     break;
                 }
             }
@@ -198,8 +198,8 @@ impl Filesystem for MapFS {
     }
 
     fn open(&mut self, _req: &fuser::Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
-        println!("open: {ino} {flags}");
-        if let Some(FSEntry::File(content)) = self.inode_map.get(&ino) {
+        info!("open: {ino} {flags}");
+        if self.inode_map.contains_key(&ino) {
             let fh = self.register_fh(ino);
             reply.opened(fh, 0);
         } else {
@@ -214,11 +214,11 @@ impl Filesystem for MapFS {
         fh: u64,
         offset: i64,
         size: u32,
-        flags: i32,
-        lock_owner: Option<u64>,
+        _flags: i32,
+        _lock_owner: Option<u64>,
         reply: fuser::ReplyData,
     ) {
-        println!("read: {ino} {fh} {offset} {size}");
+        info!("read: {ino} {fh} {offset} {size}");
         if let Some(FSEntry::File(content)) = self.inode_map.get(&ino) {
             reply.data(content.as_bytes());
         } else {
@@ -228,9 +228,10 @@ impl Filesystem for MapFS {
 }
 
 fn main() {
-    env_logger::init();
+    tracing_subscriber::fmt::init();
+
     let args = Args::parse();
-    println!("{:?}", args);
+    info!(?args, "Loaded args");
 
     let fs = bw_init();
 
@@ -242,9 +243,7 @@ fn main() {
     //     }
     // }
 
-    println!("{:?}", fs);
-
-    println!("Configuring mount");
+    info!(args.mountpoint, "Configuring mount");
     fuser::mount2(fs, args.mountpoint, &[MountOption::RO]).unwrap();
 }
 
@@ -255,13 +254,13 @@ fn bw_init() -> MapFS {
     };
 
     let status = cli.status().unwrap();
-    println!("{:?}", status);
+    debug!("{:?}", status);
     if status.status != "unlocked" {
-        println!("locked, unlocking");
+        info!("locked, unlocking");
         cli.unlock().unwrap();
     }
 
-    println!("unlocked, listing secrets");
+    info!("unlocked, listing secrets");
     let secrets = cli.list().unwrap();
 
     let mut fs = MapFS::new();
@@ -294,7 +293,7 @@ impl BWCLI {
     fn command(&self, args: &[&str]) -> Command {
         let mut cmd = Command::new(&self.path);
         cmd.args(args);
-        println!("Executing command {:?}", cmd);
+        info!("Executing command {:?}", cmd);
         if let Some(session_token) = &self.session_token {
             cmd.env("BW_SESSION", session_token);
         }
