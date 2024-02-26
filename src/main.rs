@@ -15,6 +15,10 @@ struct Args {
     /// Prevent auto unmounting to avoid errors from not being able to set `allow_other`.
     #[clap(long)]
     no_auto_unmount: bool,
+
+    /// Path to the bw binary.
+    #[clap(long, default_value = "bw")]
+    bw_bin: String,
 }
 
 fn main() {
@@ -23,7 +27,7 @@ fn main() {
     let args = Args::parse();
     info!(?args, "Loaded args");
 
-    let fs = bw_init();
+    let fs = bw_init(args.bw_bin);
 
     // let mut fs = MapFS::new();
     // for i in 0..100 {
@@ -43,8 +47,8 @@ fn main() {
     fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
 }
 
-fn bw_init() -> MapFS {
-    let mut cli = bwfs::client::BWCLI::new("bw".to_owned());
+fn bw_init(bw_bin: String) -> MapFS {
+    let mut cli = bwfs::client::BWCLI::new(bw_bin);
 
     println!("Checking vault status");
     let status = cli.status().unwrap();
