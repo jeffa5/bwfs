@@ -50,11 +50,11 @@ fn bw_init() -> MapFS {
     let status = cli.status().unwrap();
     debug!("{:?}", status);
     if status.status != "unlocked" {
-        println!("locked, unlocking");
+        println!("Vault is locked, unlocking");
         cli.unlock().unwrap();
     }
 
-    println!("unlocked, listing secrets");
+    println!("Vault is unlocked, listing secrets");
     let secrets = cli.list().unwrap();
 
     let mut fs = MapFS::new();
