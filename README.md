@@ -26,7 +26,17 @@ cargo run -- <mountpoint>
 # after a bit you can `ls <mountpoint>` to see your secrets
 ```
 
-When you're done, you'll need to unmount the directory:
+### `allow_other` issues
+
+If you have problems with executing it such as
+> fusermount3: option allow_other only allowed if 'user_allow_other' is set in /etc/fuse.conf
+you can run it without auto unmounting:
+
+```
+cargo run -- --no-auto-unmount <mountpoint>
+```
+
+When you're done, you'll need to unmount the directory manually:
 
 ```
 umount <mountpoint>

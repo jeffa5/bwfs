@@ -12,8 +12,9 @@ struct Args {
     #[clap()]
     mountpoint: String,
 
+    /// Prevent auto unmounting to avoid errors from not being able to set `allow_other`.
     #[clap(long)]
-    auto_unmount: bool,
+    no_auto_unmount: bool,
 }
 
 fn main() {
@@ -35,23 +36,25 @@ fn main() {
     info!(args.mountpoint, "Configuring mount");
     let mut mount_options = Vec::new();
     mount_options.push(MountOption::RO);
-    if args.auto_unmount {
+    if !args.no_auto_unmount {
         mount_options.push(MountOption::AutoUnmount);
     }
-    fuser::mount2(fs, args.mountpoint, &[MountOption::RO]).unwrap();
+    println!("Mount configured");
+    fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
 }
 
 fn bw_init() -> MapFS {
     let mut cli = bwfs::client::BWCLI::new("bw".to_owned());
 
+    println!("Checking vault status");
     let status = cli.status().unwrap();
     debug!("{:?}", status);
     if status.status != "unlocked" {
-        info!("locked, unlocking");
+        println!("locked, unlocking");
         cli.unlock().unwrap();
     }
 
-    info!("unlocked, listing secrets");
+    println!("unlocked, listing secrets");
     let secrets = cli.list().unwrap();
 
     let mut fs = MapFS::new();
