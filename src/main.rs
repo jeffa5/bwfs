@@ -74,6 +74,9 @@ fn bw_init() -> MapFS {
                 }
             }
         }
+        if let Some(notes) = secret.notes {
+            fs.add_file(parent, "notes".to_owned(), notes);
+        }
     }
     fs
 }
