@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use bwfs::mapfs::MapFS;
 
 use tracing::debug;
@@ -58,13 +60,23 @@ fn bw_init(bw_bin: String) -> MapFS {
         cli.unlock().unwrap();
     }
 
+    println!("Vault is unlocked, listing folders");
+    let folders = cli.list_folders().unwrap();
     println!("Vault is unlocked, listing secrets");
-    let secrets = cli.list().unwrap();
+    let secrets = cli.list_secrets().unwrap();
 
     println!("Converting secrets to filesystem");
     let mut fs = MapFS::new();
+
+    let mut folders_map = BTreeMap::new();
+    for folder in folders {
+        let inode = fs.add_dir(1, folder.name);
+        folders_map.insert(folder.id.unwrap_or_default(), inode);
+    }
+
     for secret in secrets {
-        let parent = fs.add_dir(secret.name);
+        let folder_id = folders_map.get(&secret.folder_id.unwrap_or_default()).unwrap();
+        let parent = fs.add_dir(*folder_id, secret.name);
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
                 fs.add_file(parent, "username".to_owned(), username);

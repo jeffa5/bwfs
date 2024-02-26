@@ -46,7 +46,7 @@ impl BWCLI {
         Ok(())
     }
 
-    pub fn list(&self) -> Result<Vec<Secret>, String> {
+    pub fn list_secrets(&self) -> Result<Vec<Secret>, String> {
         let output = self
             .command(&["list", "items"])
             .output()
@@ -54,6 +54,16 @@ impl BWCLI {
         let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
         let secrets_list: Vec<Secret> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
         Ok(secrets_list)
+    }
+
+    pub fn list_folders(&self) -> Result<Vec<Folder>, String> {
+        let output = self
+            .command(&["list", "folders"])
+            .output()
+            .map_err(|e| e.to_string())?;
+        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+        let folders_list: Vec<Folder> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+        Ok(folders_list)
     }
 }
 
@@ -118,4 +128,12 @@ pub struct SecretField {
     pub name: String,
     pub value: String,
     pub r#type: u32,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Folder {
+    pub object: String,
+    pub id: Option<String>,
+    pub name: String,
 }

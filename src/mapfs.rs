@@ -73,10 +73,9 @@ impl MapFS {
         self.inode_map.keys().max().copied().unwrap_or_default() + 1
     }
 
-    pub fn add_dir(&mut self, name: String) -> u64 {
+    pub fn add_dir(&mut self, parent: u64, name: String) -> u64 {
         let name = sanitize_name(&name);
         let inode = self.next_id();
-        let parent = 1;
         if let Some(FSEntry::Dir(children)) = self.inode_map.get_mut(&parent) {
             children.insert(name.clone(), inode);
         }
