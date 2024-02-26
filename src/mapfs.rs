@@ -9,7 +9,11 @@ use tracing::info;
 
 #[derive(Debug)]
 pub enum FSEntry {
-    Dir(BTreeMap<String, u64>),
+    Dir {
+        children: BTreeMap<String, u64>,
+        ctime: SystemTime,
+        mtime: SystemTime,
+    },
     File {
         content: String,
         ctime: SystemTime,
@@ -40,28 +44,28 @@ impl FSEntry {
 
     fn kind(&self) -> FileType {
         match self {
-            FSEntry::Dir(_) => FileType::Directory,
+            FSEntry::Dir { .. } => FileType::Directory,
             FSEntry::File { .. } => FileType::RegularFile,
         }
     }
 
     fn size(&self) -> u64 {
         match self {
-            FSEntry::Dir(_) => 0,
+            FSEntry::Dir { .. } => 0,
             FSEntry::File { content, .. } => content.as_bytes().len() as u64,
         }
     }
 
     fn ctime(&self) -> SystemTime {
         match self {
-            FSEntry::Dir(_) => SystemTime::now(),
+            FSEntry::Dir { ctime, .. } => ctime.clone(),
             FSEntry::File { ctime, .. } => ctime.clone(),
         }
     }
 
     fn mtime(&self) -> SystemTime {
         match self {
-            FSEntry::Dir(_) => SystemTime::now(),
+            FSEntry::Dir { mtime, .. } => mtime.clone(),
             FSEntry::File { mtime, .. } => mtime.clone(),
         }
     }
@@ -83,7 +87,14 @@ impl MapFS {
             handles: BTreeMap::new(),
             generation: 1,
         };
-        s.inode_map.insert(1, FSEntry::Dir(BTreeMap::new()));
+        s.inode_map.insert(
+            1,
+            FSEntry::Dir {
+                children: BTreeMap::new(),
+                ctime: SystemTime::now(),
+                mtime: SystemTime::now(),
+            },
+        );
         s
     }
 
@@ -91,14 +102,27 @@ impl MapFS {
         self.inode_map.keys().max().copied().unwrap_or_default() + 1
     }
 
-    pub fn add_dir(&mut self, parent: u64, name: String) -> u64 {
+    pub fn add_dir(
+        &mut self,
+        parent: u64,
+        name: String,
+        ctime: SystemTime,
+        mtime: SystemTime,
+    ) -> u64 {
         let name = sanitize_name(&name);
         let inode = self.next_id();
-        if let Some(FSEntry::Dir(children)) = self.inode_map.get_mut(&parent) {
+        if let Some(FSEntry::Dir { children, .. }) = self.inode_map.get_mut(&parent) {
             children.insert(name.clone(), inode);
         }
         self.name_map.insert((parent, name), inode);
-        self.inode_map.insert(inode, FSEntry::Dir(BTreeMap::new()));
+        self.inode_map.insert(
+            inode,
+            FSEntry::Dir {
+                children: BTreeMap::new(),
+                ctime,
+                mtime,
+            },
+        );
         inode
     }
 
@@ -112,7 +136,7 @@ impl MapFS {
     ) -> u64 {
         let name = sanitize_name(&name);
         let inode = self.next_id();
-        if let Some(FSEntry::Dir(children)) = self.inode_map.get_mut(&parent) {
+        if let Some(FSEntry::Dir { children, .. }) = self.inode_map.get_mut(&parent) {
             children.insert(name.clone(), inode);
         }
         self.name_map.insert((parent, name), inode);
@@ -195,7 +219,7 @@ impl Filesystem for MapFS {
             reply.error(ENOENT);
             return;
         }
-        if let Some(FSEntry::Dir(children)) = self.inode_map.get(&ino) {
+        if let Some(FSEntry::Dir { children, .. }) = self.inode_map.get(&ino) {
             for (i, (name, id)) in children.iter().enumerate().skip(offset as usize) {
                 let child = self.inode_map.get(id).unwrap();
                 debug!("adding {}", name);
