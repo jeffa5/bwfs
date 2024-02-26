@@ -86,7 +86,7 @@ fn bw_init(bw_bin: String) -> MapFS {
             }
             if let Some(uris) = login.uris {
                 for (i, uri) in uris.into_iter().enumerate() {
-                    let uri_name = format!("uri{i}");
+                    let uri_name = format!("uri_{i}");
                     fs.add_file(parent, uri_name, uri.uri);
                 }
             }
