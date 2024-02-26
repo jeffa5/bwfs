@@ -11,6 +11,9 @@ struct Args {
     /// Where to mount the secrets.
     #[clap()]
     mountpoint: String,
+
+    #[clap(long)]
+    auto_unmount: bool,
 }
 
 fn main() {
@@ -30,6 +33,11 @@ fn main() {
     // }
 
     info!(args.mountpoint, "Configuring mount");
+    let mut mount_options = Vec::new();
+    mount_options.push(MountOption::RO);
+    if args.auto_unmount {
+        mount_options.push(MountOption::AutoUnmount);
+    }
     fuser::mount2(fs, args.mountpoint, &[MountOption::RO]).unwrap();
 }
 
