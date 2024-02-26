@@ -1,11 +1,11 @@
-use bitwarden::auth::login::PasswordLoginRequest;
-use bitwarden::platform::SyncRequest;
-use bitwarden::Client;
+use std::process::{Command, Stdio};
+
 use clap::Parser;
 use fuser::Filesystem;
 
 #[derive(Debug, Parser)]
 struct Args {
+    /// Where to mount the secrets.
     #[clap()]
     mountpoint: String,
 }
@@ -20,50 +20,127 @@ async fn main() {
     let args = Args::parse();
     println!("{:?}", args);
 
-    let mut bw_client = Client::new(None);
-    let email = "andrewjeffery97@gmail.com".to_owned();
-
-    let kdf = bw_client.auth().prelogin(email.clone()).await.unwrap();
-    println!("Got kdf from prelogin: {:?}", kdf);
-
-    let password = rpassword::prompt_password("Password: ").unwrap();
-    println!("Got password, logging in");
-    let bw_password = PasswordLoginRequest {
-        email,
-        password,
-        two_factor: None,
-        kdf,
+    let mut cli = BWCLI {
+        path: "bw".to_owned(),
+        session_token: None,
     };
-    let login_res = bw_client.auth().login_password(&bw_password).await;
 
-    match login_res {
-        Ok(response) => {
-            println!("Logged in! {:?}", response);
-            let organization_id = uuid::Uuid::nil();
-            println!("Renewing token");
-            bw_client.auth().renew_token().await.unwrap();
-            println!("syncing");
-            let sync_res = bw_client
-                .sync(&SyncRequest {
-                    exclude_subdomains: None,
-                })
-                .await
-                .unwrap();
-            println!("synced! {:?}", sync_res);
-            // println!("Listing secrets");
-            // let secrets = bw_client.secrets().list(
-            //     &bitwarden::secrets_manager::secrets::SecretIdentifiersRequest {
-            //         organization_id,
-            //     },
-            // ).await.unwrap();
-            // for secret in secrets.data {
-            //     println!("{secret:?}")
-            // }
-            // println!("Configuring mount");
-            // fuser::mount2(NullFS, args.mountpoint, &[]).unwrap();
-        }
-        Err(err) => {
-            println!("Failed to log in: {}", err);
-        }
+    let status = cli.status().unwrap();
+    println!("{:?}", status);
+    if status.status != "unlocked" {
+        println!("locked, unlocking");
+        cli.unlock().unwrap();
     }
+
+    println!("unlocked, listing secrets");
+    let secrets = cli.list().unwrap();
+    for secret in secrets {
+        println!("{}", secret.name);
+    }
+
+    // println!("Configuring mount");
+    // fuser::mount2(NullFS, args.mountpoint, &[]).unwrap();
+}
+
+pub struct BWCLI {
+    path: String,
+    session_token: Option<String>,
+}
+
+impl BWCLI {
+    fn command(&self, args: &[&str]) -> Command {
+        let mut cmd = Command::new(&self.path);
+        cmd.args(args);
+        println!("Executing command {:?}", cmd);
+        if let Some(session_token) = &self.session_token {
+            cmd.env("BW_SESSION", session_token);
+        }
+        cmd
+    }
+
+    pub fn status(&self) -> Result<Status, String> {
+        let output = self
+            .command(&["status"])
+            .output()
+            .map_err(|e| e.to_string())?;
+        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+        let status: Status = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+        Ok(status)
+    }
+
+    pub fn unlock(&mut self) -> Result<(), String> {
+        let output = self
+            .command(&["unlock", "--raw"])
+            .stdin(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .map_err(|e| e.to_string())?;
+        let session_token = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+        self.session_token = Some(session_token);
+        Ok(())
+    }
+
+    pub fn list(&self) -> Result<Vec<Secret>, String> {
+        let output = self
+            .command(&["list", "items"])
+            .output()
+            .map_err(|e| e.to_string())?;
+        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+        let secrets_list: Vec<Secret> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+        Ok(secrets_list)
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Status {
+    last_sync: String,
+    user_email: String,
+    user_id: String,
+    status: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Secret {
+    password_history: Option<Vec<SecretPasswordHistory>>,
+    revision_date: String,
+    creation_date: String,
+    deleted_date: Option<String>,
+    object: String,
+    id: String,
+    organization_id: Option<String>,
+    folder_id: Option<String>,
+    r#type: u32,
+    reprompt: u32,
+    name: String,
+    notes: Option<String>,
+    favorite: bool,
+    login: Option<SecretLogin>,
+    collection_ids: Vec<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretLogin {
+    fido_2_credentials: Vec<String>,
+    uris: Option<Vec<SecretLoginUri>>,
+    username: Option<String>,
+    password: Option<String>,
+    totp: Option<String>,
+    password_revision_date: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretLoginUri {
+    r#match: Option<String>,
+    uri: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretPasswordHistory {
+    last_used_date: String,
+    password: String,
 }
