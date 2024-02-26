@@ -82,6 +82,7 @@ pub struct Secret {
     pub name: String,
     pub notes: Option<String>,
     pub favorite: bool,
+    pub fields: Option<Vec<SecretField>>,
     pub login: Option<SecretLogin>,
     pub collection_ids: Vec<String>,
 }
@@ -109,4 +110,12 @@ pub struct SecretLoginUri {
 pub struct SecretPasswordHistory {
     pub last_used_date: String,
     pub password: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretField {
+    pub name: String,
+    pub value: String,
+    pub r#type: u32,
 }

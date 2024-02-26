@@ -78,6 +78,11 @@ fn bw_init() -> MapFS {
         if let Some(notes) = secret.notes {
             fs.add_file(parent, "notes".to_owned(), notes);
         }
+        if let Some(fields) = secret.fields {
+            for field in fields {
+                fs.add_file(parent, format!("field_{}", field.name), field.value)
+            }
+        }
     }
     fs
 }
