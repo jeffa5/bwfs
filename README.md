@@ -26,6 +26,12 @@ cargo run -- <mountpoint>
 # after a bit you can `ls <mountpoint>` to see your secrets
 ```
 
+When you're done, you'll need to unmount the directory:
+
+```
+umount <mountpoint>
+```
+
 ## Security
 
 - [x] Secrets are never persisted to disk directly
