@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::SystemTime;
 
+use bwfs::client::Secret;
 use bwfs::mapfs::MapFS;
 
 use serde::de::value::StringDeserializer;
@@ -23,6 +24,10 @@ struct Args {
     /// Path to the bw binary.
     #[clap(long, default_value = "bw")]
     bw_bin: String,
+
+    /// Filter results to those in the folders listed.
+    #[clap(long, value_delimiter = ',')]
+    folders: Vec<String>,
 }
 
 fn main() {
@@ -31,7 +36,7 @@ fn main() {
     let args = Args::parse();
     info!(?args, "Loaded args");
 
-    let fs = bw_init(args.bw_bin);
+    let fs = bw_init(&args);
 
     info!(args.mountpoint, "Configuring mount");
     let mut mount_options = Vec::new();
@@ -43,8 +48,8 @@ fn main() {
     fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
 }
 
-fn bw_init(bw_bin: String) -> MapFS {
-    let mut cli = bwfs::client::BWCLI::new(bw_bin);
+fn bw_init(args: &Args) -> MapFS {
+    let mut cli = bwfs::client::BWCLI::new(args.bw_bin.clone());
 
     println!("Checking vault status");
     let status = cli.status().unwrap();
@@ -56,8 +61,22 @@ fn bw_init(bw_bin: String) -> MapFS {
 
     println!("Vault is unlocked, listing folders");
     let folders = cli.list_folders().unwrap();
+    let folders = folders
+        .into_iter()
+        .filter(|f| args.folders.iter().any(|af| f.name.starts_with(af)))
+        .collect::<Vec<_>>();
     println!("Vault is unlocked, listing secrets");
-    let secrets = cli.list_secrets().unwrap();
+    let mut secrets = cli.list_secrets().unwrap();
+
+    println!("Filtering secrets");
+    let original_len = secrets.len();
+    let folder_ids = folders
+        .iter()
+        .map(|f| f.id.clone().unwrap_or_default())
+        .collect();
+    filter_folders(folder_ids, &mut secrets);
+    let new_len = secrets.len();
+    info!(original_len, new_len, "Filtered secrets");
 
     println!("Converting secrets to filesystem");
     let mut fs = MapFS::new();
@@ -172,4 +191,8 @@ fn bw_init(bw_bin: String) -> MapFS {
         );
     }
     fs
+}
+
+fn filter_folders(folder_ids: Vec<String>, secrets: &mut Vec<Secret>) {
+    secrets.retain(|s| folder_ids.contains(&s.folder_id.clone().unwrap_or_default()))
 }
