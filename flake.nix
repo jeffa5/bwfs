@@ -19,6 +19,8 @@
         pkg-config
         fuse3
         openssl
+
+        bitwarden-cli
       ];
     };
   };
