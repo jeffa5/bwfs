@@ -28,6 +28,14 @@ struct Args {
     /// Filter results to those in the folders listed.
     #[clap(long, value_delimiter = ',')]
     folders: Vec<String>,
+
+    /// User to own the filesystem entries.
+    #[clap(short, long)]
+    user: Option<String>,
+
+    /// Group to own the filesystem entries.
+    #[clap(short, long)]
+    group: Option<String>,
 }
 
 fn main() {
@@ -79,8 +87,26 @@ fn bw_init(args: &Args) -> MapFS {
     let new_len = secrets.len();
     info!(original_len, new_len, "Filtered secrets");
 
+    let uid = if let Some(user) = &args.user {
+        if let Some(user) = users::get_user_by_name(user) {
+            user.uid()
+        } else {
+            panic!("Couldn't find user {user}");
+        }
+    } else {
+        users::get_current_uid()
+    };
+    let gid = if let Some(group) = &args.group {
+        if let Some(group) = users::get_group_by_name(group) {
+            group.gid()
+        } else {
+            panic!("Couldn't find group {group}");
+        }
+    } else {
+        users::get_current_gid()
+    };
     println!("Converting secrets to filesystem");
-    let mut fs = MapFS::new();
+    let mut fs = MapFS::new(uid, gid);
 
     let mut folders_map = BTreeMap::new();
     for folder in folders {
