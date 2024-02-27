@@ -252,9 +252,13 @@ rec {
             packageId = "serde_json";
           }
           {
+            name = "serde_repr";
+            packageId = "serde_repr";
+          }
+          {
             name = "time";
             packageId = "time";
-            features = [ "serde" "parsing" ];
+            features = [ "serde" "formatting" "parsing" ];
           }
           {
             name = "tracing";
@@ -265,6 +269,11 @@ rec {
             name = "tracing-subscriber";
             packageId = "tracing-subscriber";
             features = [ "env-filter" ];
+          }
+          {
+            name = "uuid";
+            packageId = "uuid";
+            features = [ "serde" ];
           }
         ];
 
@@ -1093,6 +1102,31 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" "std" ];
       };
+      "serde_repr" = rec {
+        crateName = "serde_repr";
+        version = "0.1.18";
+        edition = "2021";
+        sha256 = "1nyzz7ph9nwmjrx6f7s37m9y7y5gc10f4vjxnqkgfgcxbsa6nbhb";
+        procMacro = true;
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+          }
+          {
+            name = "quote";
+            packageId = "quote";
+          }
+          {
+            name = "syn";
+            packageId = "syn";
+          }
+        ];
+
+      };
       "sharded-slab" = rec {
         crateName = "sharded-slab";
         version = "0.1.7";
@@ -1209,6 +1243,11 @@ rec {
             features = [ "powerfmt" ];
           }
           {
+            name = "itoa";
+            packageId = "itoa";
+            optional = true;
+          }
+          {
             name = "num-conv";
             packageId = "num-conv";
           }
@@ -1265,7 +1304,7 @@ rec {
           "std" = [ "alloc" "deranged/std" ];
           "wasm-bindgen" = [ "dep:js-sys" ];
         };
-        resolvedDefaultFeatures = [ "alloc" "default" "parsing" "serde" "std" ];
+        resolvedDefaultFeatures = [ "alloc" "default" "formatting" "parsing" "serde" "std" ];
       };
       "time-core" = rec {
         crateName = "time-core";
@@ -1300,7 +1339,7 @@ rec {
         ];
         features = {
         };
-        resolvedDefaultFeatures = [ "parsing" "serde" ];
+        resolvedDefaultFeatures = [ "formatting" "parsing" "serde" ];
       };
       "tracing" = rec {
         crateName = "tracing";
@@ -1575,6 +1614,49 @@ rec {
         features = {
         };
         resolvedDefaultFeatures = [ "default" ];
+      };
+      "uuid" = rec {
+        crateName = "uuid";
+        version = "1.7.0";
+        edition = "2018";
+        sha256 = "0aivp5ys7sg2izlj2sn6rr8p43vdcwg64naj8n0kqbd15iqcj37h";
+        authors = [
+          "Ashley Mannix<ashleymannix@live.com.au>"
+          "Christopher Armstrong"
+          "Dylan DPC<dylan.dpc@gmail.com>"
+          "Hunar Roop Kahlon<hunar.roop@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "arbitrary" = [ "dep:arbitrary" ];
+          "atomic" = [ "dep:atomic" ];
+          "borsh" = [ "dep:borsh" "dep:borsh-derive" ];
+          "bytemuck" = [ "dep:bytemuck" ];
+          "default" = [ "std" ];
+          "fast-rng" = [ "rng" "dep:rand" ];
+          "js" = [ "dep:wasm-bindgen" "getrandom?/js" ];
+          "macro-diagnostics" = [ "dep:uuid-macro-internal" ];
+          "md5" = [ "dep:md-5" ];
+          "rng" = [ "dep:getrandom" ];
+          "serde" = [ "dep:serde" ];
+          "sha1" = [ "dep:sha1_smol" ];
+          "slog" = [ "dep:slog" ];
+          "v1" = [ "atomic" ];
+          "v3" = [ "md5" ];
+          "v4" = [ "rng" ];
+          "v5" = [ "sha1" ];
+          "v6" = [ "atomic" ];
+          "v7" = [ "atomic" "rng" ];
+          "zerocopy" = [ "dep:zerocopy" ];
+        };
+        resolvedDefaultFeatures = [ "default" "serde" "std" ];
       };
       "valuable" = rec {
         crateName = "valuable";
