@@ -72,7 +72,28 @@ fn bw_init(bw_bin: String) -> MapFS {
 
     let mut folders_map = BTreeMap::new();
     for folder in folders {
-        let inode = fs.add_dir(1, folder.name, SystemTime::now(), SystemTime::now());
+        let parts: Vec<_> = folder.name.split('/').collect();
+        let mut parent = 1;
+        let mut name = folder.name.clone();
+        if parts.len() > 1 {
+            // has parents, ensure they exist or add them
+            let keep = parts.len() - 1;
+            for part in parts.iter().take(keep) {
+                match fs.find(parent, (*part).to_owned()) {
+                    Some(p) => parent = p,
+                    None => {
+                        parent = fs.add_dir(
+                            parent,
+                            (*part).to_owned(),
+                            SystemTime::now(),
+                            SystemTime::now(),
+                        )
+                    }
+                }
+            }
+            name = parts[keep].to_owned();
+        }
+        let inode = fs.add_dir(parent, name, SystemTime::now(), SystemTime::now());
         folders_map.insert(folder.id.unwrap_or_default(), inode);
     }
 

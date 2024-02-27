@@ -155,6 +155,10 @@ impl MapFS {
         let new_fh = self.handles.values().max().copied().unwrap_or_default() + 1;
         *self.handles.entry(ino).or_insert(new_fh)
     }
+
+    pub fn find(&self, parent: u64, name: String) -> Option<u64> {
+        self.name_map.get(&(parent, name)).copied()
+    }
 }
 
 impl Filesystem for MapFS {
@@ -167,7 +171,7 @@ impl Filesystem for MapFS {
     ) {
         let name = name.to_str().unwrap();
         info!("lookup: {} {}", parent, name);
-        if let Some(ino) = self.name_map.get(&(parent, name.to_owned())).copied() {
+        if let Some(ino) = self.find(parent, name.to_owned()) {
             let entry = self.inode_map.get(&ino).unwrap();
             debug!("looked up secret {}", name);
             let attrs = entry.attrs(ino);
