@@ -32,7 +32,7 @@ impl FSEntry {
             ctime: self.ctime(),
             crtime: SystemTime::now(),
             kind: self.kind(),
-            perm: 0o755,
+            perm: 0o440,
             nlink: 1,
             uid: 0,
             gid: 0,
