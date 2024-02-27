@@ -36,6 +36,10 @@ struct Args {
     /// Group to own the filesystem entries.
     #[clap(short, long)]
     group: Option<String>,
+
+    /// File access controls, in octal form.
+    #[clap(short, long, default_value = "440")]
+    mode: String,
 }
 
 fn main() {
@@ -105,8 +109,10 @@ fn bw_init(args: &Args) -> MapFS {
     } else {
         users::get_current_gid()
     };
+    let mode = u16::from_str_radix(&args.mode, 8).unwrap();
+
     println!("Converting secrets to filesystem");
-    let mut fs = MapFS::new(uid, gid);
+    let mut fs = MapFS::new(uid, gid, mode);
 
     let mut folders_map = BTreeMap::new();
     for folder in folders {

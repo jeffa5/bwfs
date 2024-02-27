@@ -83,8 +83,7 @@ pub struct MapFS {
 }
 
 impl MapFS {
-    pub fn new(uid: u32, gid: u32) -> Self {
-        let permissions = 0o440;
+    pub fn new(uid: u32, gid: u32, permissions: u16) -> Self {
         let mut s = Self {
             name_map: BTreeMap::new(),
             inode_map: BTreeMap::new(),
