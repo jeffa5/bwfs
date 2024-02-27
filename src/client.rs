@@ -1,4 +1,5 @@
 use std::process::{Command, Stdio};
+use time::OffsetDateTime;
 use tracing::info;
 use uuid::Uuid;
 
@@ -71,7 +72,8 @@ impl BWCLI {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
-    pub last_sync: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub last_sync: OffsetDateTime,
     pub user_email: String,
     pub user_id: Uuid,
     pub status: String,
@@ -81,9 +83,12 @@ pub struct Status {
 #[serde(rename_all = "camelCase")]
 pub struct Secret {
     pub password_history: Option<Vec<SecretPasswordHistory>>,
-    pub revision_date: String,
-    pub creation_date: String,
-    pub deleted_date: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub revision_date: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub creation_date: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub deleted_date: Option<OffsetDateTime>,
     pub object: String,
     pub id: Uuid,
     pub organization_id: Option<Uuid>,
@@ -106,7 +111,8 @@ pub struct SecretLogin {
     pub username: Option<String>,
     pub password: Option<String>,
     pub totp: Option<String>,
-    pub password_revision_date: Option<String>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub password_revision_date: Option<OffsetDateTime>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -119,7 +125,8 @@ pub struct SecretLoginUri {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SecretPasswordHistory {
-    pub last_used_date: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub last_used_date: OffsetDateTime,
     pub password: String,
 }
 

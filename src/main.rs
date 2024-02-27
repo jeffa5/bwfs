@@ -4,7 +4,6 @@ use std::time::SystemTime;
 use bwfs::client::Secret;
 use bwfs::mapfs::MapFS;
 
-use serde::de::value::StringDeserializer;
 use tracing::debug;
 use tracing::info;
 
@@ -114,18 +113,8 @@ fn bw_init(args: &Args) -> MapFS {
         let folder_id = folders_map
             .get(&secret.folder_id.unwrap_or_default())
             .unwrap();
-        let ctime = SystemTime::from(
-            time::serde::rfc3339::deserialize(StringDeserializer::<serde::de::value::Error>::new(
-                secret.creation_date,
-            ))
-            .unwrap(),
-        );
-        let mtime = SystemTime::from(
-            time::serde::rfc3339::deserialize(StringDeserializer::<serde::de::value::Error>::new(
-                secret.revision_date,
-            ))
-            .unwrap(),
-        );
+        let ctime = SystemTime::from(secret.creation_date);
+        let mtime = SystemTime::from(secret.revision_date);
         let parent = fs.add_dir(*folder_id, secret.name, ctime.clone(), mtime.clone());
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
