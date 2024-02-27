@@ -33,14 +33,6 @@ fn main() {
 
     let fs = bw_init(args.bw_bin);
 
-    // let mut fs = MapFS::new();
-    // for i in 0..100 {
-    //     let parent = fs.add_dir(format!("test{i:04}"));
-    //     for i in 0..100 {
-    //         fs.add_file(parent, format!("value{i:04}"), "password1234".to_owned());
-    //     }
-    // }
-
     info!(args.mountpoint, "Configuring mount");
     let mut mount_options = Vec::new();
     mount_options.push(MountOption::RO);
