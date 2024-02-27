@@ -93,7 +93,7 @@ pub struct Secret {
     pub id: Uuid,
     pub organization_id: Option<Uuid>,
     pub folder_id: Option<Uuid>,
-    pub r#type: u32,
+    pub r#type: SecretType,
     pub reprompt: u32,
     pub name: String,
     pub notes: Option<String>,
@@ -101,6 +101,15 @@ pub struct Secret {
     pub fields: Option<Vec<SecretField>>,
     pub login: Option<SecretLogin>,
     pub collection_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
+#[repr(u8)]
+pub enum SecretType {
+    Login = 1,
+    Card = 2,
+    Identity = 3,
+    SecureNote = 4,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
