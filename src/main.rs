@@ -43,6 +43,7 @@ fn main() {
     mount_options.push(MountOption::RO);
     if !args.no_auto_unmount {
         mount_options.push(MountOption::AutoUnmount);
+        mount_options.push(MountOption::AllowOther);
     }
     println!("Mount configured");
     fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
