@@ -85,7 +85,7 @@ fn bw_init(args: &Args) -> MapFS {
     let original_len = secrets.len();
     let folder_ids = folders
         .iter()
-        .map(|f| f.id.clone().unwrap_or_default())
+        .map(|f| f.id.unwrap_or_default())
         .collect();
     filter_folders(folder_ids, &mut secrets);
     let new_len = secrets.len();
@@ -147,13 +147,13 @@ fn bw_init(args: &Args) -> MapFS {
             .unwrap();
         let ctime = SystemTime::from(secret.creation_date);
         let mtime = SystemTime::from(secret.revision_date);
-        let parent = fs.add_dir(*folder_id, secret.name, ctime.clone(), mtime.clone());
+        let parent = fs.add_dir(*folder_id, secret.name, ctime, mtime);
         fs.add_file(
             parent,
             "type".to_owned(),
             secret.r#type.to_string(),
-            ctime.clone(),
-            mtime.clone(),
+            ctime,
+            mtime,
         );
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
@@ -161,8 +161,8 @@ fn bw_init(args: &Args) -> MapFS {
                     parent,
                     "username".to_owned(),
                     username,
-                    ctime.clone(),
-                    mtime.clone(),
+                    ctime,
+                    mtime,
                 );
             }
             if let Some(password) = login.password {
@@ -170,8 +170,8 @@ fn bw_init(args: &Args) -> MapFS {
                     parent,
                     "password".to_owned(),
                     password,
-                    ctime.clone(),
-                    mtime.clone(),
+                    ctime,
+                    mtime,
                 );
             }
             if let Some(uris) = login.uris {
@@ -182,8 +182,8 @@ fn bw_init(args: &Args) -> MapFS {
                             uris_dir,
                             format!("{:02}", i + 1),
                             uri.uri,
-                            ctime.clone(),
-                            mtime.clone(),
+                            ctime,
+                            mtime,
                         );
                     }
                 }
@@ -194,8 +194,8 @@ fn bw_init(args: &Args) -> MapFS {
                 parent,
                 "notes".to_owned(),
                 notes,
-                ctime.clone(),
-                mtime.clone(),
+                ctime,
+                mtime,
             );
         }
         if let Some(fields) = secret.fields {
@@ -206,8 +206,8 @@ fn bw_init(args: &Args) -> MapFS {
                         fields_dir,
                         field.name,
                         field.value,
-                        ctime.clone(),
-                        mtime.clone(),
+                        ctime,
+                        mtime,
                     );
                 }
             }
@@ -216,13 +216,13 @@ fn bw_init(args: &Args) -> MapFS {
             parent,
             "id".to_owned(),
             secret.id.to_string(),
-            ctime.clone(),
-            mtime.clone(),
+            ctime,
+            mtime,
         );
     }
     fs
 }
 
 fn filter_folders(folder_ids: Vec<Uuid>, secrets: &mut Vec<Secret>) {
-    secrets.retain(|s| folder_ids.contains(&s.folder_id.clone().unwrap_or_default()))
+    secrets.retain(|s| folder_ids.contains(&s.folder_id.unwrap_or_default()))
 }

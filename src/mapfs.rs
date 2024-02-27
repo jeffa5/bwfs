@@ -58,15 +58,15 @@ impl FSEntry {
 
     fn ctime(&self) -> SystemTime {
         match self {
-            FSEntry::Dir { ctime, .. } => ctime.clone(),
-            FSEntry::File { ctime, .. } => ctime.clone(),
+            FSEntry::Dir { ctime, .. } => *ctime,
+            FSEntry::File { ctime, .. } => *ctime,
         }
     }
 
     fn mtime(&self) -> SystemTime {
         match self {
-            FSEntry::Dir { mtime, .. } => mtime.clone(),
-            FSEntry::File { mtime, .. } => mtime.clone(),
+            FSEntry::Dir { mtime, .. } => *mtime,
+            FSEntry::File { mtime, .. } => *mtime,
         }
     }
 }
