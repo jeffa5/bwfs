@@ -31,6 +31,9 @@
 
     packages.${system} = {
       bwfs = cargoNix.rootCrate.build;
+      bwfs-bw = pkgs.writeShellScriptBin "bwfs-bw" ''
+        ${pkgs.lib.getExe self.packages.${system}.bwfs} --bw-bin ${pkgs.lib.getExe pkgs.bitwarden-cli} $@
+      '';
     };
 
     devShells.${system}.default = pkgs.mkShell {
