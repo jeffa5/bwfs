@@ -9,7 +9,19 @@
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
-    cargoNix = pkgs.callPackage ./Cargo.nix {};
+    customBuildRustCrateForPkgs = pkgs:
+      pkgs.buildRustCrate.override {
+        defaultCrateOverrides =
+          pkgs.defaultCrateOverrides
+          // {
+            fuser = attrs: {
+              buildInputs = [pkgs.pkg-config pkgs.fuse3];
+            };
+          };
+      };
+    cargoNix = pkgs.callPackage ./Cargo.nix {
+      buildRustCrateForPkgs = customBuildRustCrateForPkgs;
+    };
   in {
     checks.${system} = {
       bwfs = cargoNix.rootCrate.build.override {
