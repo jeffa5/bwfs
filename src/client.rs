@@ -1,4 +1,7 @@
-use std::process::{Command, Stdio};
+use std::{
+    fmt::Display,
+    process::{Command, Stdio},
+};
 use time::OffsetDateTime;
 use tracing::info;
 use uuid::Uuid;
@@ -110,6 +113,18 @@ pub enum SecretType {
     Card = 2,
     Identity = 3,
     SecureNote = 4,
+}
+
+impl Display for SecretType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            SecretType::Login => "Login",
+            SecretType::Card => "Card",
+            SecretType::Identity => "Identity",
+            SecretType::SecureNote => "Secure note",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

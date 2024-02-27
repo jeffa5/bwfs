@@ -116,6 +116,13 @@ fn bw_init(args: &Args) -> MapFS {
         let ctime = SystemTime::from(secret.creation_date);
         let mtime = SystemTime::from(secret.revision_date);
         let parent = fs.add_dir(*folder_id, secret.name, ctime.clone(), mtime.clone());
+        fs.add_file(
+            parent,
+            "type".to_owned(),
+            secret.r#type.to_string(),
+            ctime.clone(),
+            mtime.clone(),
+        );
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
                 fs.add_file(
