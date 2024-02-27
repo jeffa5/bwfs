@@ -135,7 +135,16 @@ pub struct SecretPasswordHistory {
 pub struct SecretField {
     pub name: String,
     pub value: String,
-    pub r#type: u32,
+    pub r#type: SecretFieldType,
+}
+
+#[derive(Debug, serde_repr::Serialize_repr, serde_repr::Deserialize_repr)]
+#[repr(u8)]
+pub enum SecretFieldType {
+    Text = 0,
+    Hidden = 1,
+    Boolean = 2,
+    Linked = 3,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

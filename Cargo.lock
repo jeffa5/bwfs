@@ -68,6 +68,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
+ "serde_repr",
  "time",
  "tracing",
  "tracing-subscriber",
@@ -355,6 +356,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b2e6b945e9d3df726b65d6ee24060aff8e3533d431f677a9695db04eff9dfdb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
