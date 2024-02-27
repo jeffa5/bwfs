@@ -22,7 +22,7 @@ pub enum FSEntry {
 }
 
 impl FSEntry {
-    fn attrs(&self, ino: u64) -> FileAttr {
+    fn attrs(&self, ino: u64, perm: u16, uid: u32, gid: u32) -> FileAttr {
         FileAttr {
             ino,
             size: self.size(),
@@ -32,10 +32,10 @@ impl FSEntry {
             ctime: self.ctime(),
             crtime: SystemTime::now(),
             kind: self.kind(),
-            perm: 0o440,
+            perm,
             nlink: 1,
-            uid: 0,
-            gid: 0,
+            uid,
+            gid,
             rdev: 1,
             blksize: 1024,
             flags: 0,
@@ -77,15 +77,24 @@ pub struct MapFS {
     inode_map: BTreeMap<u64, FSEntry>,
     handles: BTreeMap<u64, u64>,
     generation: u64,
+    permissions: u16,
+    uid: u32,
+    gid: u32,
 }
 
 impl MapFS {
     pub fn new() -> Self {
+        let permissions = 0o440;
+        let uid = unsafe { libc::getuid() };
+        let gid = unsafe { libc::getgid() };
         let mut s = Self {
             name_map: BTreeMap::new(),
             inode_map: BTreeMap::new(),
             handles: BTreeMap::new(),
             generation: 1,
+            permissions,
+            uid,
+            gid,
         };
         s.inode_map.insert(
             1,
@@ -174,7 +183,7 @@ impl Filesystem for MapFS {
         if let Some(ino) = self.find(parent, name.to_owned()) {
             let entry = self.inode_map.get(&ino).unwrap();
             debug!("looked up secret {}", name);
-            let attrs = entry.attrs(ino);
+            let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
             reply.entry(&Duration::from_secs(60), &attrs, self.generation)
         } else {
             debug!("didn't find lookup for {name}");
@@ -202,7 +211,7 @@ impl Filesystem for MapFS {
         info!("getattr: {}", ino);
         if let Some(entry) = self.inode_map.get(&ino) {
             debug!("Found entry");
-            let attrs = entry.attrs(ino);
+            let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
             reply.attr(&Duration::from_secs(60), &attrs);
         } else {
             debug!("Failed to find entry");
