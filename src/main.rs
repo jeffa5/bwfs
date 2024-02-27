@@ -10,6 +10,7 @@ use tracing::info;
 
 use clap::Parser;
 use fuser::MountOption;
+use uuid::Uuid;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -186,7 +187,7 @@ fn bw_init(args: &Args) -> MapFS {
         fs.add_file(
             parent,
             "id".to_owned(),
-            secret.id,
+            secret.id.to_string(),
             ctime.clone(),
             mtime.clone(),
         );
@@ -194,6 +195,6 @@ fn bw_init(args: &Args) -> MapFS {
     fs
 }
 
-fn filter_folders(folder_ids: Vec<String>, secrets: &mut Vec<Secret>) {
+fn filter_folders(folder_ids: Vec<Uuid>, secrets: &mut Vec<Secret>) {
     secrets.retain(|s| folder_ids.contains(&s.folder_id.clone().unwrap_or_default()))
 }

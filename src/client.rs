@@ -1,5 +1,6 @@
 use std::process::{Command, Stdio};
 use tracing::info;
+use uuid::Uuid;
 
 pub struct BWCLI {
     path: String,
@@ -72,7 +73,7 @@ impl BWCLI {
 pub struct Status {
     pub last_sync: String,
     pub user_email: String,
-    pub user_id: String,
+    pub user_id: Uuid,
     pub status: String,
 }
 
@@ -84,9 +85,9 @@ pub struct Secret {
     pub creation_date: String,
     pub deleted_date: Option<String>,
     pub object: String,
-    pub id: String,
-    pub organization_id: Option<String>,
-    pub folder_id: Option<String>,
+    pub id: Uuid,
+    pub organization_id: Option<Uuid>,
+    pub folder_id: Option<Uuid>,
     pub r#type: u32,
     pub reprompt: u32,
     pub name: String,
@@ -94,7 +95,7 @@ pub struct Secret {
     pub favorite: bool,
     pub fields: Option<Vec<SecretField>>,
     pub login: Option<SecretLogin>,
-    pub collection_ids: Vec<String>,
+    pub collection_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -134,6 +135,6 @@ pub struct SecretField {
 #[serde(rename_all = "camelCase")]
 pub struct Folder {
     pub object: String,
-    pub id: Option<String>,
+    pub id: Option<Uuid>,
     pub name: String,
 }
