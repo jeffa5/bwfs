@@ -113,9 +113,17 @@ fn bw_init(bw_bin: String) -> MapFS {
                 );
             }
             if let Some(uris) = login.uris {
-                for (i, uri) in uris.into_iter().enumerate() {
-                    let uri_name = format!("uri_{i}");
-                    fs.add_file(parent, uri_name, uri.uri, ctime.clone(), mtime.clone());
+                if !uris.is_empty() {
+                    let uris_dir = fs.add_dir(parent, "uris".to_owned(), ctime, mtime);
+                    for (i, uri) in uris.into_iter().enumerate() {
+                        fs.add_file(
+                            uris_dir,
+                            format!("{:02}", i + 1),
+                            uri.uri,
+                            ctime.clone(),
+                            mtime.clone(),
+                        );
+                    }
                 }
             }
         }
@@ -129,14 +137,17 @@ fn bw_init(bw_bin: String) -> MapFS {
             );
         }
         if let Some(fields) = secret.fields {
-            for field in fields {
-                fs.add_file(
-                    parent,
-                    format!("field_{}", field.name),
-                    field.value,
-                    ctime.clone(),
-                    mtime.clone(),
-                );
+            if !fields.is_empty() {
+                let fields_dir = fs.add_dir(parent, "fields".to_owned(), ctime, mtime);
+                for field in fields {
+                    fs.add_file(
+                        fields_dir,
+                        field.name,
+                        field.value,
+                        ctime.clone(),
+                        mtime.clone(),
+                    );
+                }
             }
         }
         fs.add_file(
