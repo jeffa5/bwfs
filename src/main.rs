@@ -4,6 +4,8 @@ use std::time::SystemTime;
 use bwfs::client::Secret;
 use bwfs::mapfs::MapFS;
 
+use clap::Args;
+use clap::Subcommand;
 use tracing::debug;
 use tracing::info;
 
@@ -12,7 +14,18 @@ use fuser::MountOption;
 use uuid::Uuid;
 
 #[derive(Debug, Parser)]
-struct Args {
+struct Opts {
+    #[clap(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    Serve(ServeArgs),
+}
+
+#[derive(Debug, Args)]
+struct ServeArgs {
     /// Where to mount the secrets.
     #[clap()]
     mountpoint: String,
@@ -45,23 +58,26 @@ struct Args {
 fn main() {
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let args = Opts::parse();
     info!(?args, "Loaded args");
 
-    let fs = bw_init(&args);
-
-    info!(args.mountpoint, "Configuring mount");
-    let mut mount_options = Vec::new();
-    mount_options.push(MountOption::RO);
-    if !args.no_auto_unmount {
-        mount_options.push(MountOption::AutoUnmount);
-        mount_options.push(MountOption::AllowOther);
+    match args.cmd {
+        Command::Serve(serve_args) => {
+            let fs = bw_init(&serve_args);
+            info!(serve_args.mountpoint, "Configuring mount");
+            let mut mount_options = Vec::new();
+            mount_options.push(MountOption::RO);
+            if !serve_args.no_auto_unmount {
+                mount_options.push(MountOption::AutoUnmount);
+                mount_options.push(MountOption::AllowOther);
+            }
+            println!("Mount configured");
+            fuser::mount2(fs, serve_args.mountpoint, &mount_options).unwrap();
+        }
     }
-    println!("Mount configured");
-    fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
 }
 
-fn bw_init(args: &Args) -> MapFS {
+fn bw_init(args: &ServeArgs) -> MapFS {
     let mut cli = bwfs::client::BWCLI::new(args.bw_bin.clone());
 
     println!("Checking vault status");
@@ -83,10 +99,7 @@ fn bw_init(args: &Args) -> MapFS {
 
     println!("Filtering secrets");
     let original_len = secrets.len();
-    let folder_ids = folders
-        .iter()
-        .map(|f| f.id.unwrap_or_default())
-        .collect();
+    let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
     filter_folders(folder_ids, &mut secrets);
     let new_len = secrets.len();
     info!(original_len, new_len, "Filtered secrets");
@@ -157,68 +170,32 @@ fn bw_init(args: &Args) -> MapFS {
         );
         if let Some(login) = secret.login {
             if let Some(username) = login.username {
-                fs.add_file(
-                    parent,
-                    "username".to_owned(),
-                    username,
-                    ctime,
-                    mtime,
-                );
+                fs.add_file(parent, "username".to_owned(), username, ctime, mtime);
             }
             if let Some(password) = login.password {
-                fs.add_file(
-                    parent,
-                    "password".to_owned(),
-                    password,
-                    ctime,
-                    mtime,
-                );
+                fs.add_file(parent, "password".to_owned(), password, ctime, mtime);
             }
             if let Some(uris) = login.uris {
                 if !uris.is_empty() {
                     let uris_dir = fs.add_dir(parent, "uris".to_owned(), ctime, mtime);
                     for (i, uri) in uris.into_iter().enumerate() {
-                        fs.add_file(
-                            uris_dir,
-                            format!("{:02}", i + 1),
-                            uri.uri,
-                            ctime,
-                            mtime,
-                        );
+                        fs.add_file(uris_dir, format!("{:02}", i + 1), uri.uri, ctime, mtime);
                     }
                 }
             }
         }
         if let Some(notes) = secret.notes {
-            fs.add_file(
-                parent,
-                "notes".to_owned(),
-                notes,
-                ctime,
-                mtime,
-            );
+            fs.add_file(parent, "notes".to_owned(), notes, ctime, mtime);
         }
         if let Some(fields) = secret.fields {
             if !fields.is_empty() {
                 let fields_dir = fs.add_dir(parent, "fields".to_owned(), ctime, mtime);
                 for field in fields {
-                    fs.add_file(
-                        fields_dir,
-                        field.name,
-                        field.value,
-                        ctime,
-                        mtime,
-                    );
+                    fs.add_file(fields_dir, field.name, field.value, ctime, mtime);
                 }
             }
         }
-        fs.add_file(
-            parent,
-            "id".to_owned(),
-            secret.id.to_string(),
-            ctime,
-            mtime,
-        );
+        fs.add_file(parent, "id".to_owned(), secret.id.to_string(), ctime, mtime);
     }
     fs
 }
