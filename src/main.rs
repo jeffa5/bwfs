@@ -21,6 +21,7 @@ struct Opts {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Serve the filesystem.
     Serve(ServeArgs),
 }
 
