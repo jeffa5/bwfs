@@ -1,12 +1,14 @@
-use std::{time::SystemTime, collections::BTreeMap};
+use std::{collections::BTreeMap, time::SystemTime};
 
 use clap::Args;
 use fuser::MountOption;
-use sysinfo::{Pid, Groups, Users};
-use tracing::{info, debug};
+use sysinfo::{Groups, Pid, Users};
+use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::{mapfs::MapFS, client::Secret};
+use crate::{client::Secret, mapfs::MapFS};
+
+pub mod bwclient;
 
 #[derive(Debug, Args)]
 pub struct ServeArgs {
