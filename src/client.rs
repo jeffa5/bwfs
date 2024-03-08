@@ -17,6 +17,7 @@ pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
         _ => unreachable!(),
     }
     if !no_refresh {
+        println!("Refreshing filesystem contents");
         match send_msg(socket, Request::Refresh)? {
             Response::Success => println!("Refreshed"),
             Response::Failure => println!("Failed to refresh"),

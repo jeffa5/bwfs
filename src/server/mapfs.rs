@@ -681,8 +681,12 @@ impl MapFS {
     }
 
     pub fn refresh(&mut self, cli: &BWCLI) -> anyhow::Result<()> {
+        if cli.status().ok().map_or(true, |s| s.status != "unlocked") {
+            anyhow::bail!("BWCLI is locked");
+        }
+
         self.clear();
-        println!("Vault is unlocked, listing folders");
+        println!("Listing folders");
         let folders = cli.list_folders().unwrap();
         let folders = folders
             .into_iter()
