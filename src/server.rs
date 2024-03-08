@@ -1,6 +1,6 @@
 use std::{
     fs::remove_file,
-    io::{BufRead, BufReader, ErrorKind, Read, Write},
+    io::{BufRead, BufReader, ErrorKind, Write},
     os::unix::net::{UnixListener, UnixStream},
     sync::{Arc, Mutex},
 };
@@ -107,7 +107,7 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
 
-    let mut fs = MapFS::new(*uid, *gid, mode);
+    let fs = MapFS::new(*uid, *gid, mode);
 
     let cli = BWCLI::new(args.bw_bin.clone());
     (fs, cli)

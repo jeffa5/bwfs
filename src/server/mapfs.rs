@@ -684,7 +684,7 @@ impl MapFS {
             // .filter(|f| args.folders.iter().any(|af| f.name.starts_with(af)))
             .collect::<Vec<_>>();
         println!("Vault is unlocked, listing secrets");
-        let mut secrets = cli.list_secrets().unwrap();
+        let secrets = cli.list_secrets().unwrap();
 
         println!("Filtering secrets");
         let original_len = secrets.len();
