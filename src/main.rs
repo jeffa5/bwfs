@@ -6,6 +6,9 @@ use bwfs::mapfs::MapFS;
 
 use clap::Args;
 use clap::Subcommand;
+use sysinfo::Groups;
+use sysinfo::Pid;
+use sysinfo::Users;
 use tracing::debug;
 use tracing::info;
 
@@ -106,27 +109,40 @@ fn bw_init(args: &ServeArgs) -> MapFS {
     info!(original_len, new_len, "Filtered secrets");
 
     let uid = if let Some(user) = &args.user {
-        if let Some(user) = users::get_user_by_name(user) {
-            user.uid()
+        let users = Users::new_with_refreshed_list();
+        if let Some(user) = users.iter().find(|u| u.name() == user).map(|u| u.id()) {
+            user.clone()
         } else {
             panic!("Couldn't find user {user}");
         }
     } else {
-        users::get_current_uid()
+        let s = sysinfo::System::new_all();
+        let self_pid = std::process::id();
+        s.process(Pid::from_u32(self_pid))
+            .unwrap()
+            .user_id()
+            .unwrap()
+            .clone()
     };
     let gid = if let Some(group) = &args.group {
-        if let Some(group) = users::get_group_by_name(group) {
-            group.gid()
+        let groups = Groups::new_with_refreshed_list();
+        if let Some(group) = groups.iter().find(|g| g.name() == group).map(|g| g.id()) {
+            *group
         } else {
             panic!("Couldn't find group {group}");
         }
     } else {
-        users::get_current_gid()
+        let s = sysinfo::System::new_all();
+        let self_pid = std::process::id();
+        s.process(Pid::from_u32(self_pid))
+            .unwrap()
+            .group_id()
+            .unwrap()
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
 
     println!("Converting secrets to filesystem");
-    let mut fs = MapFS::new(uid, gid, mode);
+    let mut fs = MapFS::new(*uid, *gid, mode);
 
     let mut folders_map = BTreeMap::new();
     for folder in folders {
