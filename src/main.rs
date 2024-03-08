@@ -11,6 +11,7 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 struct Opts {
+    /// Socket to connect to the server on.
     #[clap(long, global = true, default_value = "/tmp/bwfs")]
     socket: String,
 
@@ -23,12 +24,16 @@ enum Command {
     /// Serve the filesystem.
     Serve(ServeArgs),
 
+    /// Unlock the vault.
     Unlock,
 
+    /// Lock the vault.
     Lock,
 
+    /// Get the status of the filesystem.
     Status,
 
+    /// Refresh the contents of the filesystem from the vault.
     Refresh,
 }
 
