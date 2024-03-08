@@ -9,9 +9,7 @@ use clap::Args;
 use fuser::MountOption;
 use sysinfo::{Groups, Pid, Users};
 use tracing::{debug, info, warn};
-use uuid::Uuid;
 
-use bwclient::Secret;
 use bwclient::BWCLI;
 use mapfs::MapFS;
 
@@ -107,14 +105,10 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
 
-    let fs = MapFS::new(*uid, *gid, mode);
+    let fs = MapFS::new(*uid, *gid, mode, args.folders.clone());
 
     let cli = BWCLI::new(args.bw_bin.clone());
     (fs, cli)
-}
-
-fn filter_folders(folder_ids: Vec<Uuid>, secrets: &mut Vec<Secret>) {
-    secrets.retain(|s| folder_ids.contains(&s.folder_id.unwrap_or_default()))
 }
 
 fn serve_commands(socket: String, cli: &mut BWCLI, fs: MapFSRef) {
@@ -184,7 +178,7 @@ fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
             Ok(()) => Response::Success,
             Err(_) => Response::Failure,
         },
-        Request::Lock  => match cli.lock() {
+        Request::Lock => match cli.lock() {
             Ok(()) => Response::Success,
             Err(_) => Response::Failure,
         },

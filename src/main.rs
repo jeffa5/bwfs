@@ -1,7 +1,7 @@
+use bwfs::client::lock;
 use bwfs::client::refresh;
 use bwfs::client::status;
 use bwfs::client::unlock;
-use bwfs::client::lock;
 use bwfs::server::serve;
 use bwfs::server::ServeArgs;
 use clap::Subcommand;
@@ -29,7 +29,6 @@ enum Command {
         #[clap(long, default_value = "/tmp/bwfs")]
         socket: String,
     },
-
 
     Status {
         #[clap(long, default_value = "/tmp/bwfs")]

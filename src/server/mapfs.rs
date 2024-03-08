@@ -8,7 +8,9 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 use tracing::debug;
 use tracing::info;
+use uuid::Uuid;
 
+use super::bwclient::Secret;
 use super::bwclient::BWCLI;
 
 #[derive(Clone, Debug)]
@@ -577,10 +579,11 @@ pub struct MapFS {
     permissions: u16,
     uid: u32,
     gid: u32,
+    folders: Vec<String>,
 }
 
 impl MapFS {
-    pub fn new(uid: u32, gid: u32, permissions: u16) -> Self {
+    pub fn new(uid: u32, gid: u32, permissions: u16, folders: Vec<String>) -> Self {
         let mut s = Self {
             name_map: BTreeMap::new(),
             inode_map: BTreeMap::new(),
@@ -589,6 +592,7 @@ impl MapFS {
             permissions,
             uid,
             gid,
+            folders,
         };
         s.inode_map.insert(
             1,
@@ -672,6 +676,7 @@ impl MapFS {
             permissions: self.permissions,
             uid: self.uid,
             gid: self.gid,
+            folders: std::mem::take(&mut self.folders),
         }
     }
 
@@ -681,15 +686,15 @@ impl MapFS {
         let folders = cli.list_folders().unwrap();
         let folders = folders
             .into_iter()
-            // .filter(|f| args.folders.iter().any(|af| f.name.starts_with(af)))
+            .filter(|f| self.folders.iter().any(|af| f.name.starts_with(af)))
             .collect::<Vec<_>>();
         println!("Vault is unlocked, listing secrets");
-        let secrets = cli.list_secrets().unwrap();
+        let mut secrets = cli.list_secrets().unwrap();
 
         println!("Filtering secrets");
         let original_len = secrets.len();
-        // let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
-        // filter_folders(folder_ids, &mut secrets);
+        let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
+        filter_folders(folder_ids, &mut secrets);
         let new_len = secrets.len();
         info!(original_len, new_len, "Filtered secrets");
 
@@ -879,4 +884,8 @@ fn sanitize_name(name: &str) -> String {
     pub const PROHIBITED_PATH_CHARS: &[char] =
         &['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.'];
     name.replace(PROHIBITED_PATH_CHARS, "")
+}
+
+fn filter_folders(folder_ids: Vec<Uuid>, secrets: &mut Vec<Secret>) {
+    secrets.retain(|s| folder_ids.contains(&s.folder_id.unwrap_or_default()))
 }
