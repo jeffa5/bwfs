@@ -6,9 +6,12 @@ use sysinfo::{Groups, Pid, Users};
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::{client::Secret, mapfs::MapFS};
+use bwclient::Secret;
+use mapfs::MapFS;
+use bwclient::BWCLI;
 
 pub mod bwclient;
+pub mod mapfs;
 
 #[derive(Debug, Args)]
 pub struct ServeArgs {
@@ -55,7 +58,7 @@ pub fn serve(args: ServeArgs) {
 }
 
 fn bw_init(args: &ServeArgs) -> MapFS {
-    let mut cli = crate::client::BWCLI::new(args.bw_bin.clone());
+    let mut cli = BWCLI::new(args.bw_bin.clone());
 
     println!("Checking vault status");
     let status = cli.status().unwrap();
