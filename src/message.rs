@@ -1,6 +1,7 @@
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Request {
     Unlock { password: String },
+    Lock,
     Status,
     Refresh,
 }

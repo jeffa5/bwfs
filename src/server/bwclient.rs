@@ -53,6 +53,16 @@ impl BWCLI {
         Ok(())
     }
 
+    pub fn lock(&mut self) -> Result<(), String> {
+        const BWFS_PASSWORD: &str = "BWFS_PASSWORD";
+        self.command(&["lock"])
+            .stdin(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
     pub fn list_secrets(&self) -> Result<Vec<Secret>, String> {
         let output = self
             .command(&["list", "items"])

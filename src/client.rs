@@ -24,6 +24,21 @@ pub fn unlock(socket: String) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn lock(socket: String) -> anyhow::Result<()> {
+    let request = Request::Lock;
+    match send_msg(socket.clone(), request)? {
+        Response::Success => println!("Locked"),
+        Response::Failure => println!("Failed to lock"),
+        _ => unreachable!(),
+    }
+    match send_msg(socket, Request::Refresh)? {
+        Response::Success => println!("Refreshed"),
+        Response::Failure => println!("Failed to refresh"),
+        _ => unreachable!(),
+    }
+    Ok(())
+}
+
 pub fn status(socket: String) -> anyhow::Result<()> {
     let request = Request::Status;
     match send_msg(socket, request)? {

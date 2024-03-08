@@ -1,6 +1,7 @@
 use bwfs::client::refresh;
 use bwfs::client::status;
 use bwfs::client::unlock;
+use bwfs::client::lock;
 use bwfs::server::serve;
 use bwfs::server::ServeArgs;
 use clap::Subcommand;
@@ -24,6 +25,12 @@ enum Command {
         socket: String,
     },
 
+    Lock {
+        #[clap(long, default_value = "/tmp/bwfs")]
+        socket: String,
+    },
+
+
     Status {
         #[clap(long, default_value = "/tmp/bwfs")]
         socket: String,
@@ -44,6 +51,7 @@ fn main() -> anyhow::Result<()> {
     match args.cmd {
         Command::Serve(serve_args) => serve(serve_args),
         Command::Unlock { socket } => unlock(socket),
+        Command::Lock { socket } => lock(socket),
         Command::Status { socket } => status(socket),
         Command::Refresh { socket } => refresh(socket),
     }
