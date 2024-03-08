@@ -39,9 +39,11 @@ impl BWCLI {
         Ok(status)
     }
 
-    pub fn unlock(&mut self) -> Result<(), String> {
+    pub fn unlock(&mut self, password: &str) -> Result<(), String> {
+        const BWFS_PASSWORD: &str = "BWFS_PASSWORD";
         let output = self
-            .command(&["unlock", "--raw"])
+            .command(&["unlock", "--raw", "--passwordenv", BWFS_PASSWORD])
+            .env(BWFS_PASSWORD, password)
             .stdin(Stdio::inherit())
             .stderr(Stdio::inherit())
             .output()

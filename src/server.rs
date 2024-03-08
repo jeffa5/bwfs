@@ -1,14 +1,23 @@
-use std::{collections::BTreeMap, time::SystemTime};
+use std::{
+    fs::remove_file,
+    io::{BufRead, BufReader, ErrorKind, Read, Write},
+    os::unix::net::{UnixListener, UnixStream},
+    sync::{Arc, Mutex},
+};
 
 use clap::Args;
 use fuser::MountOption;
 use sysinfo::{Groups, Pid, Users};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use bwclient::Secret;
-use mapfs::MapFS;
 use bwclient::BWCLI;
+use mapfs::MapFS;
+
+use crate::message::{Request, Response};
+
+use self::mapfs::MapFSRef;
 
 pub mod bwclient;
 pub mod mapfs;
@@ -42,10 +51,14 @@ pub struct ServeArgs {
     /// File access controls, in octal form.
     #[clap(short, long, default_value = "440")]
     mode: String,
+
+    #[clap(long, default_value = "/tmp/bwfs")]
+    socket: String,
 }
 
-pub fn serve(args: ServeArgs) {
-    let fs = bw_init(&args);
+pub fn serve(args: ServeArgs) -> anyhow::Result<()> {
+    let (fs, mut cli) = bw_init(&args);
+    let fs_ref = MapFSRef(Arc::new(Mutex::new(fs)));
     info!(args.mountpoint, "Configuring mount");
     let mut mount_options = Vec::new();
     mount_options.push(MountOption::RO);
@@ -54,36 +67,13 @@ pub fn serve(args: ServeArgs) {
         mount_options.push(MountOption::AllowOther);
     }
     println!("Mount configured");
-    fuser::mount2(fs, args.mountpoint, &mount_options).unwrap();
+    let _mount = fuser::spawn_mount2(fs_ref.clone(), args.mountpoint, &mount_options).unwrap();
+    serve_commands(args.socket.clone(), &mut cli, fs_ref);
+    remove_file(args.socket)?;
+    Ok(())
 }
 
-fn bw_init(args: &ServeArgs) -> MapFS {
-    let mut cli = BWCLI::new(args.bw_bin.clone());
-
-    println!("Checking vault status");
-    let status = cli.status().unwrap();
-    debug!("{:?}", status);
-    if status.status != "unlocked" {
-        println!("Vault is locked, unlocking");
-        cli.unlock().unwrap();
-    }
-
-    println!("Vault is unlocked, listing folders");
-    let folders = cli.list_folders().unwrap();
-    let folders = folders
-        .into_iter()
-        .filter(|f| args.folders.iter().any(|af| f.name.starts_with(af)))
-        .collect::<Vec<_>>();
-    println!("Vault is unlocked, listing secrets");
-    let mut secrets = cli.list_secrets().unwrap();
-
-    println!("Filtering secrets");
-    let original_len = secrets.len();
-    let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
-    filter_folders(folder_ids, &mut secrets);
-    let new_len = secrets.len();
-    info!(original_len, new_len, "Filtered secrets");
-
+fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     let uid = if let Some(user) = &args.user {
         let users = Users::new_with_refreshed_list();
         if let Some(user) = users.iter().find(|u| u.name() == user).map(|u| u.id()) {
@@ -117,82 +107,92 @@ fn bw_init(args: &ServeArgs) -> MapFS {
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
 
-    println!("Converting secrets to filesystem");
     let mut fs = MapFS::new(*uid, *gid, mode);
 
-    let mut folders_map = BTreeMap::new();
-    for folder in folders {
-        let parts: Vec<_> = folder.name.split('/').collect();
-        let mut parent = 1;
-        let mut name = folder.name.clone();
-        if parts.len() > 1 {
-            // has parents, ensure they exist or add them
-            let keep = parts.len() - 1;
-            for part in parts.iter().take(keep) {
-                match fs.find(parent, (*part).to_owned()) {
-                    Some(p) => parent = p,
-                    None => {
-                        parent = fs.add_dir(
-                            parent,
-                            (*part).to_owned(),
-                            SystemTime::now(),
-                            SystemTime::now(),
-                        )
-                    }
-                }
-            }
-            name = parts[keep].to_owned();
-        }
-        let inode = fs.add_dir(parent, name, SystemTime::now(), SystemTime::now());
-        folders_map.insert(folder.id.unwrap_or_default(), inode);
-    }
-
-    for secret in secrets {
-        let folder_id = folders_map
-            .get(&secret.folder_id.unwrap_or_default())
-            .unwrap();
-        let ctime = SystemTime::from(secret.creation_date);
-        let mtime = SystemTime::from(secret.revision_date);
-        let parent = fs.add_dir(*folder_id, secret.name, ctime, mtime);
-        fs.add_file(
-            parent,
-            "type".to_owned(),
-            secret.r#type.to_string(),
-            ctime,
-            mtime,
-        );
-        if let Some(login) = secret.login {
-            if let Some(username) = login.username {
-                fs.add_file(parent, "username".to_owned(), username, ctime, mtime);
-            }
-            if let Some(password) = login.password {
-                fs.add_file(parent, "password".to_owned(), password, ctime, mtime);
-            }
-            if let Some(uris) = login.uris {
-                if !uris.is_empty() {
-                    let uris_dir = fs.add_dir(parent, "uris".to_owned(), ctime, mtime);
-                    for (i, uri) in uris.into_iter().enumerate() {
-                        fs.add_file(uris_dir, format!("{:02}", i + 1), uri.uri, ctime, mtime);
-                    }
-                }
-            }
-        }
-        if let Some(notes) = secret.notes {
-            fs.add_file(parent, "notes".to_owned(), notes, ctime, mtime);
-        }
-        if let Some(fields) = secret.fields {
-            if !fields.is_empty() {
-                let fields_dir = fs.add_dir(parent, "fields".to_owned(), ctime, mtime);
-                for field in fields {
-                    fs.add_file(fields_dir, field.name, field.value, ctime, mtime);
-                }
-            }
-        }
-        fs.add_file(parent, "id".to_owned(), secret.id.to_string(), ctime, mtime);
-    }
-    fs
+    let cli = BWCLI::new(args.bw_bin.clone());
+    (fs, cli)
 }
 
 fn filter_folders(folder_ids: Vec<Uuid>, secrets: &mut Vec<Secret>) {
     secrets.retain(|s| folder_ids.contains(&s.folder_id.unwrap_or_default()))
+}
+
+fn serve_commands(socket: String, cli: &mut BWCLI, fs: MapFSRef) {
+    info!(socket, "Starting listening");
+    let listener = bind_socket_or_remove(socket).unwrap();
+    loop {
+        let (stream, _addr) = listener.accept().unwrap();
+        debug!("Accepted connection");
+        handle_stream(stream, cli, fs.clone());
+    }
+}
+
+fn bind_socket_or_remove(socket: String) -> anyhow::Result<UnixListener> {
+    match UnixListener::bind(&socket) {
+        Ok(l) => Ok(l),
+        Err(e) => {
+            if e.kind() == ErrorKind::AddrInUse {
+                // try to connect to the socket
+                if UnixStream::connect(&socket).is_ok() {
+                    // managed to connect so probably something running, don't disturb it
+                    // ourselves
+                    debug!(socket, "Found socket file already in use and alive");
+                    Err(anyhow::anyhow!(
+                        "Socket {socket} exists and is already listening from another instance"
+                    ))
+                } else {
+                    debug!(
+                        socket,
+                        "Found socket file already in but dead, deleting it and binding"
+                    );
+                    // nothing running, we can semi-safely remove the socket
+                    remove_file(&socket)?;
+                    let l = UnixListener::bind(socket)?;
+                    Ok(l)
+                }
+            } else {
+                Err(anyhow::Error::from(e))
+            }
+        }
+    }
+}
+
+fn handle_stream(stream: UnixStream, cli: &mut BWCLI, fs: MapFSRef) {
+    let mut input = Vec::new();
+    let mut reader = BufReader::new(stream);
+    reader.read_until(b'\n', &mut input).unwrap();
+    let mut stream = reader.into_inner();
+    // stream.read_to_string(&mut input).unwrap();
+    // debug!(input, "Got input");
+    match serde_json::from_slice::<Request>(&input) {
+        Ok(request) => {
+            debug!(?input, "Parsed request");
+            let res = handle_request(request, cli, fs);
+            debug!(?res, "Sending response");
+            let json_res = serde_json::to_vec(&res).unwrap();
+            stream.write_all(&json_res).unwrap();
+        }
+        Err(e) => {
+            warn!(error=%e, "Failed to parse client request");
+        }
+    }
+}
+
+fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
+    match request {
+        Request::Unlock { password } => match cli.unlock(&password) {
+            Ok(()) => Response::Success,
+            Err(_) => Response::Failure,
+        },
+        Request::Status => match cli.status() {
+            Ok(s) => Response::Status {
+                locked: s.status == "locked",
+            },
+            Err(_) => Response::Failure,
+        },
+        Request::Refresh => match fs.refresh(cli) {
+            Ok(()) => Response::Success,
+            Err(_) => Response::Failure,
+        },
+    }
 }

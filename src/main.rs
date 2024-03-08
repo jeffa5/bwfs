@@ -1,3 +1,6 @@
+use bwfs::client::refresh;
+use bwfs::client::status;
+use bwfs::client::unlock;
 use bwfs::server::serve;
 use bwfs::server::ServeArgs;
 use clap::Subcommand;
@@ -15,9 +18,24 @@ struct Opts {
 enum Command {
     /// Serve the filesystem.
     Serve(ServeArgs),
+
+    Unlock {
+        #[clap(long, default_value = "/tmp/bwfs")]
+        socket: String,
+    },
+
+    Status {
+        #[clap(long, default_value = "/tmp/bwfs")]
+        socket: String,
+    },
+
+    Refresh {
+        #[clap(long, default_value = "/tmp/bwfs")]
+        socket: String,
+    },
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
     let args = Opts::parse();
@@ -25,5 +43,8 @@ fn main() {
 
     match args.cmd {
         Command::Serve(serve_args) => serve(serve_args),
+        Command::Unlock { socket } => unlock(socket),
+        Command::Status { socket } => status(socket),
+        Command::Refresh { socket } => refresh(socket),
     }
 }
