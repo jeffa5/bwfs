@@ -54,7 +54,6 @@ impl BWCLI {
     }
 
     pub fn lock(&mut self) -> Result<(), String> {
-        const BWFS_PASSWORD: &str = "BWFS_PASSWORD";
         self.command(&["lock"])
             .stdin(Stdio::inherit())
             .stderr(Stdio::inherit())
