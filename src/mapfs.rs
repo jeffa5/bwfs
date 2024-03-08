@@ -181,7 +181,7 @@ impl Filesystem for MapFS {
             let entry = self.inode_map.get(&ino).unwrap();
             debug!("looked up secret {}", name);
             let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
-            reply.entry(&Duration::from_secs(60), &attrs, self.generation)
+            reply.entry(&Duration::ZERO, &attrs, self.generation)
         } else {
             debug!("didn't find lookup for {name}");
             reply.error(ENOENT)
@@ -209,7 +209,7 @@ impl Filesystem for MapFS {
         if let Some(entry) = self.inode_map.get(&ino) {
             debug!("Found entry");
             let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
-            reply.attr(&Duration::from_secs(60), &attrs);
+            reply.attr(&Duration::ZERO, &attrs);
         } else {
             debug!("Failed to find entry");
             reply.error(ENOENT)
