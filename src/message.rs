@@ -10,5 +10,5 @@ pub enum Request {
 pub enum Response {
     Status { locked: bool },
     Success,
-    Failure,
+    Failure { reason: String },
 }

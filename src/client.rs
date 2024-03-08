@@ -13,14 +13,14 @@ pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
     let request = Request::Unlock { password };
     match send_msg(socket.clone(), request)? {
         Response::Success => println!("Unlocked"),
-        Response::Failure => println!("Failed to unlock"),
+        Response::Failure { reason } => println!("Failed to unlock: {reason}"),
         _ => unreachable!(),
     }
     if !no_refresh {
         println!("Refreshing filesystem contents");
         match send_msg(socket, Request::Refresh)? {
             Response::Success => println!("Refreshed"),
-            Response::Failure => println!("Failed to refresh"),
+            Response::Failure { reason } => println!("Failed to refresh: {reason}"),
             _ => unreachable!(),
         }
     }
@@ -31,12 +31,7 @@ pub fn lock(socket: String) -> anyhow::Result<()> {
     let request = Request::Lock;
     match send_msg(socket.clone(), request)? {
         Response::Success => println!("Locked"),
-        Response::Failure => println!("Failed to lock"),
-        _ => unreachable!(),
-    }
-    match send_msg(socket, Request::Refresh)? {
-        Response::Success => println!("Refreshed"),
-        Response::Failure => println!("Failed to refresh"),
+        Response::Failure { reason } => println!("Failed to lock: {reason}"),
         _ => unreachable!(),
     }
     Ok(())
@@ -60,7 +55,7 @@ pub fn status(socket: String) -> anyhow::Result<()> {
 pub fn refresh(socket: String) -> anyhow::Result<()> {
     match send_msg(socket, Request::Refresh)? {
         Response::Success => println!("Refreshed"),
-        Response::Failure => println!("Failed to refresh"),
+        Response::Failure{reason} => println!("Failed to refresh: {reason}"),
         _ => unreachable!(),
     }
     Ok(())

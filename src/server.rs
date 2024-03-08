@@ -173,21 +173,29 @@ fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
     match request {
         Request::Unlock { password } => match cli.unlock(&password) {
             Ok(()) => Response::Success,
-            Err(_) => Response::Failure,
+            Err(e) => Response::Failure {
+                reason: e.to_string(),
+            },
         },
         Request::Lock => match cli.lock() {
             Ok(()) => Response::Success,
-            Err(_) => Response::Failure,
+            Err(e) => Response::Failure {
+                reason: e.to_string(),
+            },
         },
         Request::Status => match cli.status() {
             Ok(s) => Response::Status {
                 locked: s.status == "locked",
             },
-            Err(_) => Response::Failure,
+            Err(e) => Response::Failure {
+                reason: e.to_string(),
+            },
         },
         Request::Refresh => match fs.refresh(cli) {
             Ok(()) => Response::Success,
-            Err(_) => Response::Failure,
+            Err(e) => Response::Failure {
+                reason: e.to_string(),
+            },
         },
     }
 }
