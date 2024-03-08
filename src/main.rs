@@ -11,6 +11,9 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 struct Opts {
+    #[clap(long, global = true, default_value = "/tmp/bwfs")]
+    socket: String,
+
     #[clap(subcommand)]
     cmd: Command,
 }
@@ -20,25 +23,13 @@ enum Command {
     /// Serve the filesystem.
     Serve(ServeArgs),
 
-    Unlock {
-        #[clap(long, default_value = "/tmp/bwfs")]
-        socket: String,
-    },
+    Unlock,
 
-    Lock {
-        #[clap(long, default_value = "/tmp/bwfs")]
-        socket: String,
-    },
+    Lock,
 
-    Status {
-        #[clap(long, default_value = "/tmp/bwfs")]
-        socket: String,
-    },
+    Status,
 
-    Refresh {
-        #[clap(long, default_value = "/tmp/bwfs")]
-        socket: String,
-    },
+    Refresh,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -48,10 +39,10 @@ fn main() -> anyhow::Result<()> {
     info!(?args, "Loaded args");
 
     match args.cmd {
-        Command::Serve(serve_args) => serve(serve_args),
-        Command::Unlock { socket } => unlock(socket),
-        Command::Lock { socket } => lock(socket),
-        Command::Status { socket } => status(socket),
-        Command::Refresh { socket } => refresh(socket),
+        Command::Serve(serve_args) => serve(args.socket, serve_args),
+        Command::Unlock => unlock(args.socket),
+        Command::Lock => lock(args.socket),
+        Command::Status => status(args.socket),
+        Command::Refresh => refresh(args.socket),
     }
 }

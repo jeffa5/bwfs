@@ -49,12 +49,9 @@ pub struct ServeArgs {
     /// File access controls, in octal form.
     #[clap(short, long, default_value = "440")]
     mode: String,
-
-    #[clap(long, default_value = "/tmp/bwfs")]
-    socket: String,
 }
 
-pub fn serve(args: ServeArgs) -> anyhow::Result<()> {
+pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
     let (fs, mut cli) = bw_init(&args);
     let fs_ref = MapFSRef(Arc::new(Mutex::new(fs)));
     info!(args.mountpoint, "Configuring mount");
@@ -66,8 +63,8 @@ pub fn serve(args: ServeArgs) -> anyhow::Result<()> {
     }
     println!("Mount configured");
     let _mount = fuser::spawn_mount2(fs_ref.clone(), args.mountpoint, &mount_options).unwrap();
-    serve_commands(args.socket.clone(), &mut cli, fs_ref);
-    remove_file(args.socket)?;
+    serve_commands(socket.clone(), &mut cli, fs_ref);
+    remove_file(socket)?;
     Ok(())
 }
 
