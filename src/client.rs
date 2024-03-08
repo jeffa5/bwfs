@@ -8,7 +8,7 @@ use tracing::debug;
 
 use crate::message::{Request, Response};
 
-pub fn unlock(socket: String) -> anyhow::Result<()> {
+pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
     let password = rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap();
     let request = Request::Unlock { password };
     match send_msg(socket.clone(), request)? {
@@ -16,10 +16,12 @@ pub fn unlock(socket: String) -> anyhow::Result<()> {
         Response::Failure => println!("Failed to unlock"),
         _ => unreachable!(),
     }
-    match send_msg(socket, Request::Refresh)? {
-        Response::Success => println!("Refreshed"),
-        Response::Failure => println!("Failed to refresh"),
-        _ => unreachable!(),
+    if !no_refresh {
+        match send_msg(socket, Request::Refresh)? {
+            Response::Success => println!("Refreshed"),
+            Response::Failure => println!("Failed to refresh"),
+            _ => unreachable!(),
+        }
     }
     Ok(())
 }

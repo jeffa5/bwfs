@@ -25,7 +25,10 @@ enum Command {
     Serve(ServeArgs),
 
     /// Unlock the vault.
-    Unlock,
+    Unlock {
+        #[clap(long)]
+        no_refresh: bool,
+    },
 
     /// Lock the vault.
     Lock,
@@ -45,7 +48,7 @@ fn main() -> anyhow::Result<()> {
 
     match args.cmd {
         Command::Serve(serve_args) => serve(args.socket, serve_args),
-        Command::Unlock => unlock(args.socket),
+        Command::Unlock { no_refresh } => unlock(args.socket, no_refresh),
         Command::Lock => lock(args.socket),
         Command::Status => status(args.socket),
         Command::Refresh => refresh(args.socket),
