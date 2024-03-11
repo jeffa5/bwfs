@@ -10,10 +10,14 @@ use crate::message::{Request, Response};
 
 pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
     let password = rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap();
+    if password.is_empty(){
+        println!("Got empty password, skipping unlock");
+        return Ok(())
+    }
     let request = Request::Unlock { password };
     match send_msg(socket.clone(), request)? {
         Response::Success => println!("Unlocked"),
-        Response::Failure { reason } => println!("Failed to unlock: {reason}"),
+        Response::Failure { reason } => anyhow::bail!("Failed to unlock: {reason}"),
         _ => unreachable!(),
     }
     if !no_refresh {
