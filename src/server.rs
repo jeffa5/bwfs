@@ -178,12 +178,15 @@ fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
                 reason: e.to_string(),
             },
         },
-        Request::Lock => match cli.lock() {
-            Ok(()) => Response::Success,
-            Err(e) => Response::Failure {
-                reason: e.to_string(),
-            },
-        },
+        Request::Lock => {
+            fs.clear();
+            match cli.lock() {
+                Ok(()) => Response::Success,
+                Err(e) => Response::Failure {
+                    reason: e.to_string(),
+                },
+            }
+        }
         Request::Status => match cli.status() {
             Ok(s) => Response::Status {
                 locked: s.status == "locked",

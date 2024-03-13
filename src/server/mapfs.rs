@@ -20,6 +20,10 @@ impl MapFSRef {
     pub fn refresh(&self, cli: &BWCLI) -> anyhow::Result<()> {
         self.0.lock().unwrap().refresh(cli)
     }
+
+    pub fn clear(&self) {
+        self.0.lock().unwrap().clear()
+    }
 }
 
 impl Filesystem for MapFSRef {
