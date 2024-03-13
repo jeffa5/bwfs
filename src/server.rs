@@ -72,14 +72,14 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     let uid = if let Some(user) = &args.user {
         let users = Users::new_with_refreshed_list();
         if let Some(user) = users.iter().find(|u| u.name() == user).map(|u| u.id()) {
-            user.clone()
+            **user
         } else {
             panic!("Couldn't find user {user}");
         }
     } else {
         let s = sysinfo::System::new_all();
         let self_pid = std::process::id();
-        s.process(Pid::from_u32(self_pid))
+        *s.process(Pid::from_u32(self_pid))
             .unwrap()
             .user_id()
             .unwrap()
@@ -88,21 +88,22 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     let gid = if let Some(group) = &args.group {
         let groups = Groups::new_with_refreshed_list();
         if let Some(group) = groups.iter().find(|g| g.name() == group).map(|g| g.id()) {
-            *group
+            **group
         } else {
             panic!("Couldn't find group {group}");
         }
     } else {
         let s = sysinfo::System::new_all();
         let self_pid = std::process::id();
-        s.process(Pid::from_u32(self_pid))
+        *s.process(Pid::from_u32(self_pid))
             .unwrap()
             .group_id()
             .unwrap()
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
+    debug!(uid, gid, mode, "Initialised bitwarden client and filesystem");
 
-    let fs = MapFS::new(*uid, *gid, mode, args.folders.clone());
+    let fs = MapFS::new(uid, gid, mode, args.folders.clone());
 
     let cli = BWCLI::new(args.bw_bin.clone());
     (fs, cli)
