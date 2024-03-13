@@ -158,7 +158,7 @@ fn handle_stream(stream: UnixStream, cli: &mut BWCLI, fs: MapFSRef) {
     // debug!(input, "Got input");
     match serde_json::from_slice::<Request>(&input) {
         Ok(request) => {
-            debug!(?input, "Parsed request");
+            debug!("Parsed request");
             let res = handle_request(request, cli, fs);
             debug!(?res, "Sending response");
             let json_res = serde_json::to_vec(&res).unwrap();
