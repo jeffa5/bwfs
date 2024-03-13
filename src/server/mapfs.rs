@@ -787,14 +787,14 @@ impl Filesystem for MapFS {
         reply: fuser::ReplyEntry,
     ) {
         let name = name.to_str().unwrap();
-        info!("lookup: {} {}", parent, name);
+        info!(parent, name, "lookup");
         if let Some(ino) = self.find(parent, name.to_owned()) {
             let entry = self.inode_map.get(&ino).unwrap();
-            debug!("looked up secret {}", name);
+            debug!(name, "looked up secret");
             let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
             reply.entry(&Duration::ZERO, &attrs, self.generation)
         } else {
-            debug!("didn't find lookup for {name}");
+            debug!(name, "didn't find lookup");
             reply.error(ENOENT)
         }
     }
@@ -806,23 +806,25 @@ impl Filesystem for MapFS {
         flags: i32,
         reply: fuser::ReplyOpen,
     ) {
-        info!("opendir: {} {}", ino, flags);
+        info!(ino, flags, "opendir");
         if self.inode_map.contains_key(&ino) {
+            debug!(ino, "Found dir");
             let fh = self.register_fh(ino);
             reply.opened(fh, 0)
         } else {
+            debug!(ino, "Failed to find dir");
             reply.error(ENOENT)
         }
     }
 
     fn getattr(&mut self, _req: &fuser::Request<'_>, ino: u64, reply: fuser::ReplyAttr) {
-        info!("getattr: {}", ino);
+        info!(ino, "getattr");
         if let Some(entry) = self.inode_map.get(&ino) {
-            debug!("Found entry");
+            debug!(ino, "Found entry");
             let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
             reply.attr(&Duration::ZERO, &attrs);
         } else {
-            debug!("Failed to find entry");
+            debug!(ino, "Failed to find entry");
             reply.error(ENOENT)
         }
     }
@@ -835,7 +837,7 @@ impl Filesystem for MapFS {
         offset: i64,
         mut reply: fuser::ReplyDirectory,
     ) {
-        info!("readdir: {ino} {fh} {offset}");
+        info!(ino, fh, offset, "readdir");
         if !self.handles.contains_key(&ino) {
             reply.error(ENOENT);
             return;
@@ -843,7 +845,7 @@ impl Filesystem for MapFS {
         if let Some(FSEntry::Dir { children, .. }) = self.inode_map.get(&ino) {
             for (i, (name, id)) in children.iter().enumerate().skip(offset as usize) {
                 let child = self.inode_map.get(id).unwrap();
-                debug!("adding {}", name);
+                debug!(name, "adding dir to reply");
                 let full = reply.add(*id, i as i64 + 1, child.kind(), name);
                 if full {
                     debug!("readdir full");
@@ -857,7 +859,7 @@ impl Filesystem for MapFS {
     }
 
     fn open(&mut self, _req: &fuser::Request<'_>, ino: u64, flags: i32, reply: fuser::ReplyOpen) {
-        info!("open: {ino} {flags}");
+        info!(ino, flags, "open");
         if self.inode_map.contains_key(&ino) {
             let fh = self.register_fh(ino);
             reply.opened(fh, 0);
@@ -877,7 +879,7 @@ impl Filesystem for MapFS {
         _lock_owner: Option<u64>,
         reply: fuser::ReplyData,
     ) {
-        info!("read: {ino} {fh} {offset} {size}");
+        info!(ino, fh, offset, size, "read");
         if let Some(FSEntry::File { content, .. }) = self.inode_map.get(&ino) {
             reply.data(content.as_bytes());
         } else {
