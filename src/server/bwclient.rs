@@ -3,7 +3,7 @@ use std::{
     process::{Command, Stdio},
 };
 use time::OffsetDateTime;
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 pub struct BWCLI {
@@ -24,6 +24,7 @@ impl BWCLI {
         cmd.args(args);
         info!("Executing command {:?}", cmd);
         if let Some(session_token) = &self.session_token {
+            debug!("Adding BW_SESSION env");
             cmd.env("BW_SESSION", session_token);
         }
         cmd
@@ -36,21 +37,26 @@ impl BWCLI {
             .map_err(|e| e.to_string())?;
         let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
         let status: Status = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+        debug!(?status, "Got status");
         Ok(status)
     }
 
     pub fn unlock(&mut self, password: &str) -> Result<(), String> {
         const BWFS_PASSWORD: &str = "BWFS_PASSWORD";
+        debug!("Unlocking vault");
         let output = self
             .command(&["unlock", "--raw", "--passwordenv", BWFS_PASSWORD])
             .env(BWFS_PASSWORD, password)
-            .stdin(Stdio::inherit())
-            .stderr(Stdio::inherit())
             .output()
             .map_err(|e| e.to_string())?;
-        let session_token = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
-        self.session_token = Some(session_token);
-        Ok(())
+        if output.status.success() {
+            let session_token = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+            debug!("Got session token");
+            self.session_token = Some(session_token);
+            Ok(())
+        } else {
+            Err(String::from_utf8(output.stderr).unwrap_or_default())
+        }
     }
 
     pub fn lock(&mut self) -> Result<(), String> {
