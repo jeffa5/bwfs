@@ -689,18 +689,20 @@ impl MapFS {
 
         self.clear();
         println!("Listing folders");
-        let folders = cli.list_folders().unwrap();
-        let folders = folders
-            .into_iter()
-            .filter(|f| self.folders.iter().any(|af| f.name.starts_with(af)))
-            .collect::<Vec<_>>();
+        let mut folders = cli.list_folders().unwrap();
+        if !self.folders.is_empty() {
+            folders.retain(|f| self.folders.iter().any(|af| f.name.starts_with(af)));
+        }
         println!("Vault is unlocked, listing secrets");
         let mut secrets = cli.list_secrets().unwrap();
 
         println!("Filtering secrets");
         let original_len = secrets.len();
-        let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
-        filter_folders(folder_ids, &mut secrets);
+        if !folders.is_empty() {
+            let folder_ids = folders.iter().map(|f| f.id.unwrap_or_default()).collect();
+            debug!(?self.folders, "Filtering with folders");
+            filter_folders(folder_ids, &mut secrets);
+        }
         let new_len = secrets.len();
         info!(original_len, new_len, "Filtered secrets");
 
