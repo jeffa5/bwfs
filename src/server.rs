@@ -101,7 +101,10 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
             .unwrap()
     };
     let mode = u16::from_str_radix(&args.mode, 8).unwrap();
-    debug!(uid, gid, mode, "Initialised bitwarden client and filesystem");
+    debug!(
+        uid,
+        gid, mode, "Initialised bitwarden client and filesystem"
+    );
 
     let fs = MapFS::new(uid, gid, mode, args.folders.clone());
 

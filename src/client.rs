@@ -10,9 +10,9 @@ use crate::message::{Request, Response};
 
 pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
     let password = rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap();
-    if password.is_empty(){
+    if password.is_empty() {
         println!("Got empty password, skipping unlock");
-        return Ok(())
+        return Ok(());
     }
     let request = Request::Unlock { password };
     match send_msg(socket.clone(), request)? {
@@ -59,7 +59,7 @@ pub fn status(socket: String) -> anyhow::Result<()> {
 pub fn refresh(socket: String) -> anyhow::Result<()> {
     match send_msg(socket, Request::Refresh)? {
         Response::Success => println!("Refreshed"),
-        Response::Failure{reason} => println!("Failed to refresh: {reason}"),
+        Response::Failure { reason } => println!("Failed to refresh: {reason}"),
         _ => unreachable!(),
     }
     Ok(())
