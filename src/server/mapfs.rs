@@ -668,6 +668,7 @@ impl MapFS {
     }
 
     pub fn clear(&mut self) {
+        let root_inode = self.inode_map.remove(&1).unwrap();
         *self = Self {
             name_map: Default::default(),
             inode_map: Default::default(),
@@ -677,7 +678,8 @@ impl MapFS {
             uid: self.uid,
             gid: self.gid,
             folders: std::mem::take(&mut self.folders),
-        }
+        };
+        self.inode_map.insert(1, root_inode);
     }
 
     pub fn refresh(&mut self, cli: &BWCLI) -> anyhow::Result<()> {
