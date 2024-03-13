@@ -10,6 +10,9 @@ use tracing::info;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
+#[command(name = "BWFS")]
+#[command(version = "0.1.0")]
+#[command(about = "A bitwarden FUSE filesystem")]
 struct Opts {
     /// Socket to connect to the server on.
     #[clap(long, global = true, default_value = "/tmp/bwfs")]
