@@ -672,7 +672,10 @@ impl MapFS {
     }
 
     pub fn clear(&mut self) {
-        let root_inode = self.inode_map.remove(&1).unwrap();
+        let root_inode = self
+            .inode_map
+            .remove(&1)
+            .expect("Root inode should always exist");
         *self = Self {
             name_map: Default::default(),
             inode_map: Default::default(),
@@ -693,12 +696,12 @@ impl MapFS {
 
         self.clear();
         println!("Listing folders");
-        let mut folders = cli.list_folders().unwrap();
+        let mut folders = cli.list_folders()?;
         if !self.folders.is_empty() {
             folders.retain(|f| self.folders.iter().any(|af| f.name.starts_with(af)));
         }
         println!("Vault is unlocked, listing secrets");
-        let mut secrets = cli.list_secrets().unwrap();
+        let mut secrets = cli.list_secrets()?;
 
         println!("Filtering secrets");
         let original_len = secrets.len();
@@ -795,10 +798,13 @@ impl Filesystem for MapFS {
         let name = name.to_str().unwrap();
         info!(parent, name, "lookup");
         if let Some(ino) = self.find(parent, name.to_owned()) {
-            let entry = self.inode_map.get(&ino).unwrap();
-            debug!(name, "looked up secret");
-            let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
-            reply.entry(&Duration::ZERO, &attrs, self.generation)
+            if let Some(entry) = self.inode_map.get(&ino) {
+                debug!(name, "looked up secret");
+                let attrs = entry.attrs(ino, self.permissions, self.uid, self.gid);
+                reply.entry(&Duration::ZERO, &attrs, self.generation)
+            } else {
+                reply.error(ENOENT);
+            }
         } else {
             debug!(name, "didn't find lookup");
             reply.error(ENOENT)
@@ -850,12 +856,13 @@ impl Filesystem for MapFS {
         }
         if let Some(FSEntry::Dir { children, .. }) = self.inode_map.get(&ino) {
             for (i, (name, id)) in children.iter().enumerate().skip(offset as usize) {
-                let child = self.inode_map.get(id).unwrap();
-                debug!(name, "adding dir to reply");
-                let full = reply.add(*id, i as i64 + 1, child.kind(), name);
-                if full {
-                    debug!("readdir full");
-                    break;
+                if let Some(child) = self.inode_map.get(id) {
+                    debug!(name, "adding dir to reply");
+                    let full = reply.add(*id, i as i64 + 1, child.kind(), name);
+                    if full {
+                        debug!("readdir full");
+                        break;
+                    }
                 }
             }
             reply.ok()

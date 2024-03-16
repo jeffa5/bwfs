@@ -30,36 +30,34 @@ impl BWCLI {
         cmd
     }
 
-    pub fn status(&self) -> Result<Status, String> {
-        let output = self
-            .command(&["status"])
-            .output()
-            .map_err(|e| e.to_string())?;
-        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
-        let status: Status = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+    pub fn status(&self) -> anyhow::Result<Status> {
+        let output = self.command(&["status"]).output()?;
+        let stdout = String::from_utf8(output.stdout)?;
+        let status: Status = serde_json::from_str(&stdout)?;
         debug!(?status, "Got status");
         Ok(status)
     }
 
-    pub fn unlock(&mut self, password: &str) -> Result<(), String> {
+    pub fn unlock(&mut self, password: &str) -> anyhow::Result<()> {
         const BWFS_PASSWORD: &str = "BWFS_PASSWORD";
         debug!("Unlocking vault");
         let output = self
             .command(&["unlock", "--raw", "--passwordenv", BWFS_PASSWORD])
             .env(BWFS_PASSWORD, password)
-            .output()
-            .map_err(|e| e.to_string())?;
+            .output()?;
         if output.status.success() {
-            let session_token = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+            let session_token = String::from_utf8(output.stdout)?;
             debug!("Got session token");
             self.session_token = Some(session_token);
             Ok(())
         } else {
-            Err(String::from_utf8(output.stderr).unwrap_or_default())
+            Err(anyhow::anyhow!(
+                String::from_utf8(output.stderr).unwrap_or_default()
+            ))
         }
     }
 
-    pub fn lock(&mut self) -> Result<(), String> {
+    pub fn lock(&mut self) -> anyhow::Result<()> {
         self.session_token = None;
         // TODO: should we call the lock command? That will lock all instances of bw tokens, we
         // should probably just remove ours so that we don't have access.
@@ -71,23 +69,17 @@ impl BWCLI {
         Ok(())
     }
 
-    pub fn list_secrets(&self) -> Result<Vec<Secret>, String> {
-        let output = self
-            .command(&["list", "items"])
-            .output()
-            .map_err(|e| e.to_string())?;
-        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
-        let secrets_list: Vec<Secret> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+    pub fn list_secrets(&self) -> anyhow::Result<Vec<Secret>> {
+        let output = self.command(&["list", "items"]).output()?;
+        let stdout = String::from_utf8(output.stdout)?;
+        let secrets_list: Vec<Secret> = serde_json::from_str(&stdout)?;
         Ok(secrets_list)
     }
 
-    pub fn list_folders(&self) -> Result<Vec<Folder>, String> {
-        let output = self
-            .command(&["list", "folders"])
-            .output()
-            .map_err(|e| e.to_string())?;
-        let stdout = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
-        let folders_list: Vec<Folder> = serde_json::from_str(&stdout).map_err(|e| e.to_string())?;
+    pub fn list_folders(&self) -> anyhow::Result<Vec<Folder>> {
+        let output = self.command(&["list", "folders"]).output()?;
+        let stdout = String::from_utf8(output.stdout)?;
+        let folders_list: Vec<Folder> = serde_json::from_str(&stdout)?;
         Ok(folders_list)
     }
 }
