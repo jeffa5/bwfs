@@ -61,7 +61,7 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
         mount_options.push(MountOption::AutoUnmount);
         mount_options.push(MountOption::AllowOther);
     }
-    println!("Mount configured");
+    println!("Mount configured at {:?}", args.mountpoint);
     let _mount = fuser::spawn_mount2(fs_ref.clone(), args.mountpoint, &mount_options).unwrap();
     serve_commands(socket.clone(), &mut cli, fs_ref);
     remove_file(socket)?;
