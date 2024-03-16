@@ -14,16 +14,28 @@ Or, now you can use the filesystem and your normal tools, everything is a file o
 
 **This is currently very early stage so don't expect stability or it even working reliably**
 
-As a precondition, you should have the official bitwarden client installed and available on your `PATH` as `bw`.
+As a precondition, you should have the official bitwarden CLI client installed and available on your `PATH` as `bw`.
 You will have to have done an initial login so that the client knows your basic account info such as username.
 
-Then, to run bwfs from the root of this project:
+Then, to run `bwfs` from the root of this project:
 
 ```
-cargo run -- <mountpoint>
-# asks for password if locked
-# listing the secrets takes a while in the bw tool
-# after a bit you can `ls <mountpoint>` to see your secrets
+cargo run -- serve <mountpoint>
+```
+
+Then in another terminal, run:
+
+```
+# see the current status of bwfs
+cargo run -- status
+
+# unlock the filesystem and refresh its contents
+cargo run -- unlock
+# prompts for password
+
+# when you're done, you can lock it manually
+cargo run -- lock
+# this removes the contents from being accessible through the mountpoint
 ```
 
 ### `allow_other` issues
@@ -46,4 +58,3 @@ umount <mountpoint>
 
 - [x] Secrets are never persisted to disk directly
 - [ ] Secrets may currently be persisted to SWAP memory
-
