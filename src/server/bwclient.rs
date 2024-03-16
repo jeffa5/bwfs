@@ -59,13 +59,6 @@ impl BWCLI {
 
     pub fn lock(&mut self) -> anyhow::Result<()> {
         self.session_token = None;
-        // TODO: should we call the lock command? That will lock all instances of bw tokens, we
-        // should probably just remove ours so that we don't have access.
-        self.command(&["lock"])
-            .stdin(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
-            .map_err(|e| e.to_string())?;
         Ok(())
     }
 
