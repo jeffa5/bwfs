@@ -1,6 +1,7 @@
 use std::{
     io::{Read, Write},
     os::unix::net::UnixStream,
+    process::{Command, Stdio},
 };
 
 use anyhow::Context;
@@ -8,8 +9,30 @@ use tracing::debug;
 
 use crate::message::{Request, Response};
 
-pub fn unlock(socket: String, no_refresh: bool) -> anyhow::Result<()> {
-    let password = rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap();
+pub fn unlock(
+    socket: String,
+    no_refresh: bool,
+    password_prompt: Option<String>,
+) -> anyhow::Result<()> {
+    let password = if let Some(password_prompt) = password_prompt {
+        let mut cmd = Command::new(password_prompt);
+        cmd.stdin(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .stdout(Stdio::piped());
+        debug!(?cmd, "Prompting for password with custom script");
+        let password = cmd.output()?;
+        if password.status.success() {
+            String::from_utf8(password.stdout)?
+        } else {
+            anyhow::bail!(
+                "Password prompt failed with exit code {}",
+                password.status.code().unwrap_or(1)
+            );
+        }
+    } else {
+        debug!("Prompting for password with rpassword");
+        rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap()
+    };
     if password.is_empty() {
         println!("Got empty password, skipping unlock");
         return Ok(());

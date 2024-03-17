@@ -29,8 +29,15 @@ enum Command {
 
     /// Unlock the vault.
     Unlock {
+        /// Do not refresh the filesystem contents after unlocking.
         #[clap(long)]
         no_refresh: bool,
+
+        /// Custom password prompt script.
+        ///
+        /// Must output the password onto stdout, stderr will be presented to the user.
+        #[clap(long)]
+        password_prompt: Option<String>,
     },
 
     /// Lock the vault.
@@ -51,7 +58,10 @@ fn main() -> anyhow::Result<()> {
 
     match args.cmd {
         Command::Serve(serve_args) => serve(args.socket, serve_args),
-        Command::Unlock { no_refresh } => unlock(args.socket, no_refresh),
+        Command::Unlock {
+            no_refresh,
+            password_prompt,
+        } => unlock(args.socket, no_refresh, password_prompt),
         Command::Lock => lock(args.socket),
         Command::Status => status(args.socket),
         Command::Refresh => refresh(args.socket),
