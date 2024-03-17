@@ -64,19 +64,20 @@ pub fn lock(socket: String) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn status(socket: String) -> anyhow::Result<()> {
+pub fn status(socket: String) -> anyhow::Result<i32> {
     let request = Request::Status;
     match send_msg(socket, request)? {
         Response::Status { locked } => {
             if locked {
                 println!("Locked");
+                Ok(1)
             } else {
                 println!("Unlocked");
+                Ok(0)
             }
         }
         _ => unreachable!(),
     }
-    Ok(())
 }
 
 pub fn refresh(socket: String) -> anyhow::Result<()> {

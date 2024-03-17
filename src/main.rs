@@ -63,7 +63,10 @@ fn main() -> anyhow::Result<()> {
             password_prompt,
         } => unlock(args.socket, no_refresh, password_prompt),
         Command::Lock => lock(args.socket),
-        Command::Status => status(args.socket),
+        Command::Status => {
+            let exit_code = status(args.socket)?;
+            std::process::exit(exit_code)
+        }
         Command::Refresh => refresh(args.socket),
     }
 }
