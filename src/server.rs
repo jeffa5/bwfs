@@ -2,7 +2,7 @@ use std::{
     fs::remove_file,
     io::{BufRead, BufReader, ErrorKind, Write},
     os::unix::net::{UnixListener, UnixStream},
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc, Mutex},
 };
 
 use clap::Args;
@@ -74,6 +74,8 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
         mount_options.push(MountOption::AllowOther);
     }
 
+    let (sender, receiver) = mpsc::channel::<()>();
+
     if args.lock_after_s > 0 {
         let fs = fs_ref.clone();
         let cli = Arc::clone(&cli_ref);
@@ -82,6 +84,20 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
             .spawn(move || {
                 debug!(args.lock_after_s, "Spawned lock-after thread");
                 loop {
+                    debug!("Waiting for unlock condition");
+                    match receiver.recv() {
+                        Ok(()) => {
+                            debug!("Received unlock signal");
+                            while let Ok(()) = receiver.try_recv() {
+                                // just draining the queue so we don't get caught behind
+                            }
+                        }
+                        Err(error) => {
+                            warn!(%error, "Unlock channel failed to receive");
+                            break;
+                        }
+                    }
+
                     let unlocked = cli
                         .lock()
                         .unwrap()
@@ -96,9 +112,6 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
                         debug!("Lock after duration passed, clearing and locking");
                         fs.clear();
                         cli.lock().unwrap().lock();
-                    } else {
-                        debug!("CLI locked, waiting before checking status again");
-                        std::thread::sleep(Duration::from_secs(1));
                     }
                 }
             })
@@ -107,7 +120,7 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
 
     println!("Mount configured at {:?}", args.mountpoint);
     let _mount = fuser::spawn_mount2(fs_ref.clone(), args.mountpoint, &mount_options).unwrap();
-    serve_commands(socket.clone(), &cli_ref, fs_ref);
+    serve_commands(socket.clone(), &cli_ref, fs_ref, &sender);
     remove_file(socket)?;
     Ok(())
 }
@@ -156,13 +169,18 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     (fs, cli)
 }
 
-fn serve_commands(socket: String, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
+fn serve_commands(
+    socket: String,
+    cli: &Arc<Mutex<BWCLI>>,
+    fs: MapFSRef,
+    unlock_notify: &mpsc::Sender<()>,
+) {
     info!(socket, "Starting listening");
     let listener = bind_socket_or_remove(socket).unwrap();
     loop {
         let (stream, _addr) = listener.accept().unwrap();
         debug!("Accepted connection");
-        handle_stream(stream, cli, fs.clone());
+        handle_stream(stream, cli, fs.clone(), unlock_notify);
     }
 }
 
@@ -196,7 +214,12 @@ fn bind_socket_or_remove(socket: String) -> anyhow::Result<UnixListener> {
     }
 }
 
-fn handle_stream(stream: UnixStream, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
+fn handle_stream(
+    stream: UnixStream,
+    cli: &Arc<Mutex<BWCLI>>,
+    fs: MapFSRef,
+    unlock_notify: &mpsc::Sender<()>,
+) {
     let mut input = Vec::new();
     let mut reader = BufReader::new(stream);
     reader.read_until(b'\n', &mut input).unwrap();
@@ -206,7 +229,7 @@ fn handle_stream(stream: UnixStream, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
     match serde_json::from_slice::<Request>(&input) {
         Ok(request) => {
             debug!("Parsed request");
-            let res = handle_request(request, cli, fs);
+            let res = handle_request(request, cli, fs, unlock_notify);
             debug!(?res, "Sending response");
             let json_res = serde_json::to_vec(&res).unwrap();
             stream.write_all(&json_res).unwrap();
@@ -217,12 +240,20 @@ fn handle_stream(stream: UnixStream, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
     }
 }
 
-fn handle_request(request: Request, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) -> Response {
+fn handle_request(
+    request: Request,
+    cli: &Arc<Mutex<BWCLI>>,
+    fs: MapFSRef,
+    unlock_notify: &mpsc::Sender<()>,
+) -> Response {
     match request {
         Request::Unlock { password } => {
             let start = Instant::now();
             let res = match cli.lock().unwrap().unlock(&password) {
-                Ok(()) => Response::Success,
+                Ok(()) => {
+                    let _ = unlock_notify.send(());
+                    Response::Success
+                }
                 Err(e) => Response::Failure {
                     reason: e.to_string(),
                 },
