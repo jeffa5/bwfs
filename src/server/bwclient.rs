@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    process::{Command, Stdio},
-};
+use std::{fmt::Display, process::Command};
 use time::OffsetDateTime;
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -57,9 +54,8 @@ impl BWCLI {
         }
     }
 
-    pub fn lock(&mut self) -> anyhow::Result<()> {
+    pub fn lock(&mut self) {
         self.session_token = None;
-        Ok(())
     }
 
     pub fn list_secrets(&self) -> anyhow::Result<Vec<Secret>> {
@@ -84,7 +80,15 @@ pub struct Status {
     pub last_sync: OffsetDateTime,
     pub user_email: String,
     pub user_id: Uuid,
-    pub status: String,
+    pub status: StatusKind,
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StatusKind {
+    Unlocked,
+    Locked,
+    Unauthenticated,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

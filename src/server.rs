@@ -7,13 +7,17 @@ use std::{
 
 use clap::Args;
 use fuser::MountOption;
+use std::time::Duration;
 use sysinfo::{Groups, Pid, Users};
 use tracing::{debug, info, warn};
 
 use bwclient::BWCLI;
 use mapfs::MapFS;
 
-use crate::message::{Request, Response};
+use crate::{
+    message::{Request, Response},
+    server::bwclient::StatusKind,
+};
 
 use self::mapfs::MapFSRef;
 
@@ -49,11 +53,18 @@ pub struct ServeArgs {
     /// File access controls, in octal form.
     #[clap(short, long, default_value = "440")]
     mode: String,
+
+    /// Lock the filesystem after the given number of seconds since unlock.
+    ///
+    /// Set to 0 to disable auto lock.
+    #[clap(long, default_value = "300")]
+    lock_after_s: u64,
 }
 
 pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
-    let (fs, mut cli) = bw_init(&args);
+    let (fs, cli) = bw_init(&args);
     let fs_ref = MapFSRef(Arc::new(Mutex::new(fs)));
+    let cli_ref = Arc::new(Mutex::new(cli));
     info!(args.mountpoint, "Configuring mount");
     let mut mount_options = Vec::new();
     mount_options.push(MountOption::RO);
@@ -61,9 +72,41 @@ pub fn serve(socket: String, args: ServeArgs) -> anyhow::Result<()> {
         mount_options.push(MountOption::AutoUnmount);
         mount_options.push(MountOption::AllowOther);
     }
+
+    if args.lock_after_s > 0 {
+        let fs = fs_ref.clone();
+        let cli = Arc::clone(&cli_ref);
+        std::thread::Builder::new()
+            .name("lock-after".to_owned())
+            .spawn(move || {
+                debug!(args.lock_after_s, "Spawned lock-after thread");
+                loop {
+                    let unlocked = cli
+                        .lock()
+                        .unwrap()
+                        .status()
+                        .map_or(false, |s| s.status == StatusKind::Unlocked);
+                    if unlocked {
+                        debug!(
+                            args.lock_after_s,
+                            "CLI unlocked, waiting for lock after duration"
+                        );
+                        std::thread::sleep(Duration::from_secs(args.lock_after_s));
+                        debug!("Lock after duration passed, clearing and locking");
+                        fs.clear();
+                        cli.lock().unwrap().lock();
+                    } else {
+                        debug!("CLI locked, waiting before checking status again");
+                        std::thread::sleep(Duration::from_secs(1));
+                    }
+                }
+            })
+            .unwrap();
+    }
+
     println!("Mount configured at {:?}", args.mountpoint);
     let _mount = fuser::spawn_mount2(fs_ref.clone(), args.mountpoint, &mount_options).unwrap();
-    serve_commands(socket.clone(), &mut cli, fs_ref);
+    serve_commands(socket.clone(), &cli_ref, fs_ref);
     remove_file(socket)?;
     Ok(())
 }
@@ -112,7 +155,7 @@ fn bw_init(args: &ServeArgs) -> (MapFS, BWCLI) {
     (fs, cli)
 }
 
-fn serve_commands(socket: String, cli: &mut BWCLI, fs: MapFSRef) {
+fn serve_commands(socket: String, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
     info!(socket, "Starting listening");
     let listener = bind_socket_or_remove(socket).unwrap();
     loop {
@@ -152,7 +195,7 @@ fn bind_socket_or_remove(socket: String) -> anyhow::Result<UnixListener> {
     }
 }
 
-fn handle_stream(stream: UnixStream, cli: &mut BWCLI, fs: MapFSRef) {
+fn handle_stream(stream: UnixStream, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
     let mut input = Vec::new();
     let mut reader = BufReader::new(stream);
     reader.read_until(b'\n', &mut input).unwrap();
@@ -173,9 +216,9 @@ fn handle_stream(stream: UnixStream, cli: &mut BWCLI, fs: MapFSRef) {
     }
 }
 
-fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
+fn handle_request(request: Request, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) -> Response {
     match request {
-        Request::Unlock { password } => match cli.unlock(&password) {
+        Request::Unlock { password } => match cli.lock().unwrap().unlock(&password) {
             Ok(()) => Response::Success,
             Err(e) => Response::Failure {
                 reason: e.to_string(),
@@ -183,22 +226,18 @@ fn handle_request(request: Request, cli: &mut BWCLI, fs: MapFSRef) -> Response {
         },
         Request::Lock => {
             fs.clear();
-            match cli.lock() {
-                Ok(()) => Response::Success,
-                Err(e) => Response::Failure {
-                    reason: e.to_string(),
-                },
-            }
+            cli.lock().unwrap().lock();
+            Response::Success
         }
-        Request::Status => match cli.status() {
+        Request::Status => match cli.lock().unwrap().status() {
             Ok(s) => Response::Status {
-                locked: s.status == "locked",
+                locked: s.status == StatusKind::Locked,
             },
             Err(e) => Response::Failure {
                 reason: e.to_string(),
             },
         },
-        Request::Refresh => match fs.refresh(cli) {
+        Request::Refresh => match fs.refresh(&cli.lock().unwrap()) {
             Ok(()) => Response::Success,
             Err(e) => Response::Failure {
                 reason: e.to_string(),

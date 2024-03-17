@@ -10,6 +10,8 @@ use tracing::debug;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::server::bwclient::StatusKind;
+
 use super::bwclient::Secret;
 use super::bwclient::BWCLI;
 
@@ -690,7 +692,11 @@ impl MapFS {
     }
 
     pub fn refresh(&mut self, cli: &BWCLI) -> anyhow::Result<()> {
-        if cli.status().ok().map_or(true, |s| s.status != "unlocked") {
+        if cli
+            .status()
+            .ok()
+            .map_or(true, |s| s.status != StatusKind::Unlocked)
+        {
             anyhow::bail!("BWCLI is locked");
         }
 
