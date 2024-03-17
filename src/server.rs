@@ -8,6 +8,7 @@ use std::{
 use clap::Args;
 use fuser::MountOption;
 use std::time::Duration;
+use std::time::Instant;
 use sysinfo::{Groups, Pid, Users};
 use tracing::{debug, info, warn};
 
@@ -218,30 +219,51 @@ fn handle_stream(stream: UnixStream, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) {
 
 fn handle_request(request: Request, cli: &Arc<Mutex<BWCLI>>, fs: MapFSRef) -> Response {
     match request {
-        Request::Unlock { password } => match cli.lock().unwrap().unlock(&password) {
-            Ok(()) => Response::Success,
-            Err(e) => Response::Failure {
-                reason: e.to_string(),
-            },
-        },
+        Request::Unlock { password } => {
+            let start = Instant::now();
+            let res = match cli.lock().unwrap().unlock(&password) {
+                Ok(()) => Response::Success,
+                Err(e) => Response::Failure {
+                    reason: e.to_string(),
+                },
+            };
+            let time = start.elapsed();
+            debug!(?time, "Unlock complete");
+            res
+        }
         Request::Lock => {
+            let start = Instant::now();
             fs.clear();
             cli.lock().unwrap().lock();
+            let time = start.elapsed();
+            debug!(?time, "Lock complete");
             Response::Success
         }
-        Request::Status => match cli.lock().unwrap().status() {
-            Ok(s) => Response::Status {
-                locked: s.status == StatusKind::Locked,
-            },
-            Err(e) => Response::Failure {
-                reason: e.to_string(),
-            },
-        },
-        Request::Refresh => match fs.refresh(&cli.lock().unwrap()) {
-            Ok(()) => Response::Success,
-            Err(e) => Response::Failure {
-                reason: e.to_string(),
-            },
-        },
+        Request::Status => {
+            let start = Instant::now();
+            let res = match cli.lock().unwrap().status() {
+                Ok(s) => Response::Status {
+                    locked: s.status == StatusKind::Locked,
+                },
+                Err(e) => Response::Failure {
+                    reason: e.to_string(),
+                },
+            };
+            let time = start.elapsed();
+            debug!(?time, "Status complete");
+            res
+        }
+        Request::Refresh => {
+            let start = Instant::now();
+            let res = match fs.refresh(&cli.lock().unwrap()) {
+                Ok(()) => Response::Success,
+                Err(e) => Response::Failure {
+                    reason: e.to_string(),
+                },
+            };
+            let time = start.elapsed();
+            debug!(?time, "Refresh complete");
+            res
+        }
     }
 }
