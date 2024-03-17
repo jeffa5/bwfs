@@ -1,5 +1,5 @@
 - [ ] name threads
 - [ ] add config file
-    - [ ] option for custom script to input password
+    - [x] option for custom script to input password
     - [x] auto lock after duration from unlock
     - [ ] auto lock after timeout since last action
