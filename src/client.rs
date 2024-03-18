@@ -34,20 +34,20 @@ pub fn unlock(
         rpassword::prompt_password("Bitwarden password (input is hidden): ").unwrap()
     };
     if password.is_empty() {
-        println!("Got empty password, skipping unlock");
+        eprintln!("Got empty password, skipping unlock");
         return Ok(());
     }
     let request = Request::Unlock { password };
     match send_msg(socket.clone(), request)? {
-        Response::Success => println!("Unlocked"),
+        Response::Success => eprintln!("Unlocked"),
         Response::Failure { reason } => anyhow::bail!("Failed to unlock: {reason}"),
         _ => unreachable!(),
     }
     if !no_refresh {
-        println!("Refreshing filesystem contents");
+        eprintln!("Refreshing filesystem contents");
         match send_msg(socket, Request::Refresh)? {
-            Response::Success => println!("Refreshed"),
-            Response::Failure { reason } => println!("Failed to refresh: {reason}"),
+            Response::Success => eprintln!("Refreshed"),
+            Response::Failure { reason } => eprintln!("Failed to refresh: {reason}"),
             _ => unreachable!(),
         }
     }
@@ -57,8 +57,8 @@ pub fn unlock(
 pub fn lock(socket: String) -> anyhow::Result<()> {
     let request = Request::Lock;
     match send_msg(socket.clone(), request)? {
-        Response::Success => println!("Locked"),
-        Response::Failure { reason } => println!("Failed to lock: {reason}"),
+        Response::Success => eprintln!("Locked"),
+        Response::Failure { reason } => eprintln!("Failed to lock: {reason}"),
         _ => unreachable!(),
     }
     Ok(())
@@ -69,10 +69,10 @@ pub fn status(socket: String) -> anyhow::Result<i32> {
     match send_msg(socket, request)? {
         Response::Status { locked } => {
             if locked {
-                println!("Locked");
+                eprintln!("Locked");
                 Ok(1)
             } else {
-                println!("Unlocked");
+                eprintln!("Unlocked");
                 Ok(0)
             }
         }
@@ -82,8 +82,8 @@ pub fn status(socket: String) -> anyhow::Result<i32> {
 
 pub fn refresh(socket: String) -> anyhow::Result<()> {
     match send_msg(socket, Request::Refresh)? {
-        Response::Success => println!("Refreshed"),
-        Response::Failure { reason } => println!("Failed to refresh: {reason}"),
+        Response::Success => eprintln!("Refreshed"),
+        Response::Failure { reason } => eprintln!("Failed to refresh: {reason}"),
         _ => unreachable!(),
     }
     Ok(())
