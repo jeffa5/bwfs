@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
+set -ex
+
+bwfs="cargo run -- "
+
 root=${1:?no filesystem root given}
 
-# TODO: probably want to check the status of the filesystem and ask the user to unlock it if needed
+if ! $bwfs status >/dev/null 2>&1; then
+  $bwfs unlock
+fi
 
 echo "Choosing files from $root"
 
